@@ -20,6 +20,7 @@ app.get('/', (_req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       users: '/api/users',
       companies: '/api/companies',
       branches: '/api/branches',
