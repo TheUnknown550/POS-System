@@ -106,7 +106,7 @@ ehthumbs.db
 Thumbs.db
 
 # Database
-*.sqlite
+*.sqlitebackend/config
 *.sqlite3
 *.db
 
@@ -116,3 +116,6 @@ Thumbs.db
 
 # Testing
 .jest/
+
+# Backend
+backend/config/config.json
