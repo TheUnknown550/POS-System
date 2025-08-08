@@ -4,23 +4,61 @@ const {
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class OrderItem extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
-      // define association here
+      // OrderItem belongs to Order
+      OrderItem.belongsTo(models.Order, {
+        foreignKey: 'order_id',
+        as: 'order'
+      });
+
+      // OrderItem belongs to Product
+      OrderItem.belongsTo(models.Product, {
+        foreignKey: 'product_id',
+        as: 'product'
+      });
     }
   }
   OrderItem.init({
-    order_id: DataTypes.UUID,
-    product_id: DataTypes.UUID,
-    quantity: DataTypes.INTEGER,
-    unit_price: DataTypes.DECIMAL
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    order_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'orders',
+        key: 'id'
+      }
+    },
+    product_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'products',
+        key: 'id'
+      }
+    },
+    quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 1
+      }
+    },
+    unit_price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
+      validate: {
+        min: 0
+      }
+    }
   }, {
     sequelize,
     modelName: 'OrderItem',
+    tableName: 'order_items',
+    timestamps: false
   });
   return OrderItem;
 };

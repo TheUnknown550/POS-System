@@ -4,23 +4,54 @@ const {
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class BranchTable extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
-      // define association here
+      // BranchTable belongs to Branch
+      BranchTable.belongsTo(models.Branch, {
+        foreignKey: 'branch_id',
+        as: 'branch'
+      });
+
+      // BranchTable has many orders
+      BranchTable.hasMany(models.Order, {
+        foreignKey: 'table_id',
+        as: 'orders'
+      });
     }
   }
   BranchTable.init({
-    branch_id: DataTypes.UUID,
-    table_number: DataTypes.STRING,
-    status: DataTypes.STRING,
-    created_at: DataTypes.DATE
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    branch_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'branches',
+        key: 'id'
+      }
+    },
+    table_number: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isIn: [['available', 'occupied', 'reserved']]
+      }
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
   }, {
     sequelize,
     modelName: 'BranchTable',
+    tableName: 'branch_tables',
+    timestamps: false
   });
   return BranchTable;
 };

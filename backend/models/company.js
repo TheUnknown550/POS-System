@@ -4,21 +4,47 @@ const {
 } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Company extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
     static associate(models) {
-      // define association here
+      // Company has many branches
+      Company.hasMany(models.Branch, {
+        foreignKey: 'company_id',
+        as: 'branches'
+      });
+
+      // Company has many admins
+      Company.hasMany(models.CompanyAdmin, {
+        foreignKey: 'company_id',
+        as: 'admins'
+      });
+
+      // Company belongs to many users through company_admins
+      Company.belongsToMany(models.User, {
+        through: models.CompanyAdmin,
+        foreignKey: 'company_id',
+        otherKey: 'user_id',
+        as: 'users'
+      });
     }
   }
   Company.init({
-    name: DataTypes.STRING,
-    created_at: DataTypes.DATE
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW
+    }
   }, {
     sequelize,
     modelName: 'Company',
+    tableName: 'companies',
+    timestamps: false
   });
   return Company;
 };
