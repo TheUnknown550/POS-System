@@ -1,0 +1,155 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Building2, 
+  MapPin, 
+  Users, 
+  Package, 
+  ShoppingCart, 
+  Receipt, 
+  CreditCard,
+  BarChart3,
+  Settings
+} from 'lucide-react';
+
+interface SidebarProps {
+  isCollapsed?: boolean;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false }) => {
+  const navigationItems = [
+    {
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      path: '/dashboard',
+      color: 'text-blue-500'
+    },
+    {
+      label: 'Companies',
+      icon: Building2,
+      path: '/companies',
+      color: 'text-green-500'
+    },
+    {
+      label: 'Branches',
+      icon: MapPin,
+      path: '/branches',
+      color: 'text-purple-500'
+    },
+    {
+      label: 'Staff',
+      icon: Users,
+      path: '/staff',
+      color: 'text-orange-500'
+    },
+    {
+      label: 'Products',
+      icon: Package,
+      path: '/products',
+      color: 'text-indigo-500'
+    },
+    {
+      label: 'Orders',
+      icon: ShoppingCart,
+      path: '/orders',
+      color: 'text-red-500'
+    },
+    {
+      label: 'Tables',
+      icon: Receipt,
+      path: '/tables',
+      color: 'text-teal-500'
+    },
+    {
+      label: 'Payments',
+      icon: CreditCard,
+      path: '/payments',
+      color: 'text-yellow-600'
+    },
+    {
+      label: 'Reports',
+      icon: BarChart3,
+      path: '/reports',
+      color: 'text-pink-500'
+    },
+    {
+      label: 'Settings',
+      icon: Settings,
+      path: '/settings',
+      color: 'text-gray-500'
+    }
+  ];
+
+  return (
+    <aside className={`bg-gray-900 text-white transition-all duration-300 ${
+      isCollapsed ? 'w-16' : 'w-64'
+    } min-h-screen`}>
+      {/* Logo */}
+      <div className="p-6 border-b border-gray-700">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+            <Receipt className="w-5 h-5 text-white" />
+          </div>
+          {!isCollapsed && (
+            <div>
+              <h2 className="text-xl font-bold">POS System</h2>
+              <p className="text-xs text-gray-400">Restaurant Management</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="mt-6">
+        <ul className="space-y-1 px-3">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.path}>
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center space-x-3 px-3 py-3 rounded-lg transition-all duration-200 group ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon 
+                    className={`w-5 h-5 transition-colors ${
+                      isCollapsed ? 'mx-auto' : ''
+                    }`} 
+                  />
+                  {!isCollapsed && (
+                    <span className="font-medium">{item.label}</span>
+                  )}
+                  
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-16 bg-gray-800 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+                      {item.label}
+                    </div>
+                  )}
+                </NavLink>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      {/* Footer */}
+      <div className="absolute bottom-4 left-0 right-0 px-6">
+        {!isCollapsed && (
+          <div className="text-xs text-gray-500 text-center">
+            <p>&copy; 2024 POS System</p>
+            <p>v1.0.0</p>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+export default Sidebar;
