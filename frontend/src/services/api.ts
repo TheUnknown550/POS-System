@@ -18,7 +18,7 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://45.154.24.169:3000/api',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -61,14 +61,21 @@ class ApiService {
 
   async login(email: string, password: string): Promise<AuthUser> {
     try {
-      const response: AxiosResponse<{ user: any; token: string; companies: Company[] }> = 
-        await this.api.post('/auth/login', { email, password });
+      const response: AxiosResponse<{ 
+        success: boolean;
+        user: any; 
+        token: string;
+        message?: string;
+      }> = await this.api.post('/auth/login', { email, password });
+      
+      // Handle the actual backend response structure
+      const companies: Company[] = []; // Login doesn't return companies, we'll fetch them separately if needed
       
       const authUser: AuthUser = {
         user: response.data.user,
         token: response.data.token,
-        companies: response.data.companies,
-        role: response.data.user.role
+        companies: companies,
+        role: response.data.user.role || 'admin'
       };
       
       localStorage.setItem('token', authUser.token);
@@ -82,22 +89,47 @@ class ApiService {
 
   async register(name: string, email: string, password: string): Promise<AuthUser> {
     try {
-      const response: AxiosResponse<{ user: any; token: string; companies: Company[] }> = 
-        await this.api.post('/auth/register', { name, email, password });
+      console.log('Making registration request to:', this.api.defaults.baseURL + '/auth/register');
+      console.log('Registration data:', { name, email, password: '***' });
+      
+      const response: AxiosResponse<{ 
+        success: boolean;
+        user: any; 
+        token: string; 
+        company: Company | null;
+        message?: string;
+      }> = await this.api.post('/auth/register', { name, email, password });
+      
+      console.log('Registration response:', response.data);
+      
+      // Handle the actual backend response structure
+      const companies = response.data.company ? [response.data.company] : [];
       
       const authUser: AuthUser = {
         user: response.data.user,
         token: response.data.token,
-        companies: response.data.companies,
-        role: response.data.user.role
+        companies: companies,
+        role: response.data.user.role || 'admin'
       };
       
       localStorage.setItem('token', authUser.token);
       localStorage.setItem('user', JSON.stringify(authUser));
       return authUser;
     } catch (error: any) {
-      console.error('Registration error:', error);
-      throw new Error(error.response?.data?.error || 'Registration failed');
+      console.error('Registration error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      if (error.code === 'NETWORK_ERROR' || !error.response) {
+        throw new Error('Network error: Could not connect to server. Please check if the backend is running.');
+      }
+      
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Registration failed';
+      throw new Error(errorMessage);
     }
   }
 
@@ -344,6 +376,11 @@ class ApiService {
   }
 
   // Reports
+  async getReports(): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports');
+    return response.data;
+  }
+
   async getPaymentReport(params?: {
     branch_id?: string;
     date_from?: string;
@@ -352,6 +389,43 @@ class ApiService {
     group_by?: string;
   }): Promise<ApiResponse<any>> {
     const response = await this.api.get('/reports/payments', { params });
+    return response.data;
+  }
+
+  async getSalesReport(params?: {
+    startDate?: string;
+    endDate?: string;
+    branchId?: string;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports/sales', { params });
+    return response.data;
+  }
+
+  async getDailyReport(params?: {
+    date?: string;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports/daily', { params });
+    return response.data;
+  }
+
+  async getMonthlyReport(params?: {
+    year?: number;
+    month?: number;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports/monthly', { params });
+    return response.data;
+  }
+
+  async getProductReport(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports/products', { params });
+    return response.data;
+  }
+
+  async getSummaryReport(): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/reports/summary');
     return response.data;
   }
 

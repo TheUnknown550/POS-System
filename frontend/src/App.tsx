@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
-import SetupPage from './pages/auth/SetupPage';
+import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import OrdersPage from './pages/OrdersPage';
@@ -22,7 +22,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, needsInitialization } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -32,11 +32,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  if (needsInitialization) {
-    return <Navigate to="/setup" replace />;
-  }
-
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 // Public Route Component (redirect to dashboard if authenticated)
@@ -45,7 +41,7 @@ interface PublicRouteProps {
 }
 
 const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, needsInitialization } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -53,10 +49,6 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
       </div>
     );
-  }
-
-  if (needsInitialization) {
-    return <Navigate to="/setup" replace />;
   }
 
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
@@ -68,10 +60,15 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
-            {/* Setup Route - no auth required */}
-            <Route path="/setup" element={<SetupPage />} />
-
             {/* Public Routes */}
+            <Route
+              path="/"
+              element={
+                <PublicRoute>
+                  <LandingPage />
+                </PublicRoute>
+              }
+            />
             <Route
               path="/login"
               element={
@@ -91,25 +88,105 @@ function App() {
 
             {/* Protected Routes */}
             <Route
-              path="/"
+              path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <Layout />
+                  <Layout>
+                    <DashboardPage />
+                  </Layout>
                 </ProtectedRoute>
               }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="companies" element={<CompaniesPage />} />
-              <Route path="branches" element={<BranchesPage />} />
-              <Route path="staff" element={<StaffPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="tables" element={<TablesPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
+            />
+            <Route
+              path="/companies"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CompaniesPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/branches"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <BranchesPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <StaffPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ProductsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <OrdersPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tables"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <TablesPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payments"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <PaymentsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ReportsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SettingsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
 
             {/* 404 Route */}
             <Route

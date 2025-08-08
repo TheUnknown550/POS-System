@@ -10,8 +10,6 @@ interface AuthContextType {
   register: (name: string, email: string, password: string) => Promise<void>;
   isLoading: boolean;
   isAuthenticated: boolean;
-  needsInitialization: boolean;
-  checkInitialization: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,25 +21,12 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [needsInitialization, setNeedsInitialization] = useState(false);
-
-  const checkInitialization = async () => {
-    try {
-      const initStatus = await apiService.checkInitialization();
-      setNeedsInitialization(initStatus.needsInitialization);
-    } catch (error) {
-      console.error('Error checking initialization:', error);
-      setNeedsInitialization(true);
-    }
-  };
 
   useEffect(() => {
-    // Check if user is already logged in and system initialization status
+    // Check if user is already logged in
     const initializeAuth = async () => {
       const token = localStorage.getItem('token');
       const userData = localStorage.getItem('user');
-      
-      await checkInitialization();
       
       if (token && userData) {
         try {
@@ -78,7 +63,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       const authUser = await apiService.register(name, email, password);
       setUser(authUser);
-      setNeedsInitialization(false); // System is now initialized
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -98,9 +82,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     register,
     isLoading,
-    isAuthenticated: !!user,
-    needsInitialization,
-    checkInitialization
+    isAuthenticated: !!user
   };
 
   return (

@@ -4,7 +4,11 @@ import { Menu, X } from 'lucide-react';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
-const Layout: React.FC = () => {
+interface LayoutProps {
+  children?: React.ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -66,7 +70,7 @@ const Layout: React.FC = () => {
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <div className="p-6">
-            <Outlet />
+            {children || <Outlet />}
           </div>
         </main>
       </div>

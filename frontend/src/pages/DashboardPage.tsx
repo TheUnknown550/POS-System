@@ -13,28 +13,21 @@ import {
   CheckCircle,
   UserCheck
 } from 'lucide-react';
+import { apiService } from '../services/api';
+import type { ReportSummary, DailyReport } from '../types';
 
 interface DashboardStats {
   todayRevenue: number;
   todayOrders: number;
-  activeCustomers: number;
-  monthlyGrowth: number;
-  pendingOrders: number;
-  completedOrders: number;
-  lowStockItems: number;
+  weekOrders: number;
+  monthOrders: number;
+  totalOrders: number;
+  totalRevenue: number;
   totalProducts: number;
-  activeBranches: number;
-  totalStaff: number;
+  totalBranches: number;
   availableTables: number;
+  occupiedTables: number;
   totalTables: number;
-  processingPayments: number;
-}
-
-interface RecentActivity {
-  id: number;
-  action: string;
-  time: string;
-  type: 'order' | 'payment' | 'table' | 'alert' | 'staff';
 }
 
 const DashboardPage: React.FC = () => {
@@ -42,46 +35,59 @@ const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     todayRevenue: 0,
     todayOrders: 0,
-    activeCustomers: 0,
-    monthlyGrowth: 0,
-    pendingOrders: 0,
-    completedOrders: 0,
-    lowStockItems: 0,
+    weekOrders: 0,
+    monthOrders: 0,
+    totalOrders: 0,
+    totalRevenue: 0,
     totalProducts: 0,
-    activeBranches: 0,
-    totalStaff: 0,
+    totalBranches: 0,
     availableTables: 0,
-    totalTables: 0,
-    processingPayments: 0
+    occupiedTables: 0,
+    totalTables: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate fetching comprehensive dashboard data
     const loadDashboardData = async () => {
       setIsLoading(true);
+      setError(null);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Mock comprehensive dashboard data based on all system components
-      setStats({
-        todayRevenue: 3247.85,
-        todayOrders: 47,
-        activeCustomers: 142,
-        monthlyGrowth: 12.5,
-        pendingOrders: 8,
-        completedOrders: 39,
-        lowStockItems: 5,
-        totalProducts: 68,
-        activeBranches: 3,
-        totalStaff: 24,
-        availableTables: 8,
-        totalTables: 15,
-        processingPayments: 3
-      });
-      
-      setIsLoading(false);
+      try {
+        // Fetch summary report from backend
+        const summaryResponse = await apiService.getSummaryReport();
+        const summary: ReportSummary = summaryResponse.data;
+
+        // Fetch today's detailed report
+        const dailyResponse = await apiService.getDailyReport();
+        const daily: DailyReport = dailyResponse.data;
+
+        // Fetch tables data
+        const tablesResponse = await apiService.getTables();
+        const tables = tablesResponse.data || [];
+        
+        const availableTables = tables.filter(table => table.status === 'available').length;
+        const occupiedTables = tables.filter(table => table.status === 'occupied').length;
+
+        setStats({
+          todayRevenue: parseFloat(summary.today.sales),
+          todayOrders: summary.today.orders,
+          weekOrders: summary.thisWeek.orders,
+          monthOrders: summary.thisMonth.orders,
+          totalOrders: summary.totals.orders,
+          totalRevenue: parseFloat(summary.totals.sales),
+          totalProducts: summary.totals.products,
+          totalBranches: summary.totals.branches,
+          availableTables,
+          occupiedTables,
+          totalTables: tables.length
+        });
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        setError('Failed to load dashboard data');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadDashboardData();
@@ -118,14 +124,6 @@ const DashboardPage: React.FC = () => {
     }
   ];
 
-  const recentActivities: RecentActivity[] = [
-    { id: 1, action: 'New order #1247 received from Table 5', time: '2 minutes ago', type: 'order' },
-    { id: 2, action: 'Payment of $45.99 processed successfully', time: '5 minutes ago', type: 'payment' },
-    { id: 3, action: 'Table 7 marked as available', time: '8 minutes ago', type: 'table' },
-    { id: 4, action: 'Low stock alert: Caesar Salad ingredients', time: '12 minutes ago', type: 'alert' },
-    { id: 5, action: 'New staff member David Kim added', time: '1 hour ago', type: 'staff' }
-  ];
-
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'order': return <ShoppingCart className="w-4 h-4" />;
@@ -154,6 +152,24 @@ const DashboardPage: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Dashboard</p>
+          <p className="text-gray-600">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -191,8 +207,9 @@ const DashboardPage: React.FC = () => {
           </div>
           <div className="mt-4 flex items-center text-sm">
             <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-green-600 font-medium">+{stats.monthlyGrowth}%</span>
-            <span className="text-gray-500 ml-1">from last month</span>
+            <span className="text-green-600 font-medium">
+              ${stats.totalRevenue.toLocaleString()} total
+            </span>
           </div>
         </div>
 
@@ -209,7 +226,7 @@ const DashboardPage: React.FC = () => {
           <div className="mt-4 flex items-center text-sm">
             <CheckCircle className="w-4 h-4 text-green-500 mr-1" />
             <span className="text-gray-500">
-              {stats.completedOrders} completed, {stats.pendingOrders} pending
+              {stats.totalOrders} total orders
             </span>
           </div>
         </div>
@@ -219,7 +236,7 @@ const DashboardPage: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">Table Occupancy</p>
               <p className="text-3xl font-bold text-purple-600">
-                {Math.round(((stats.totalTables - stats.availableTables) / stats.totalTables) * 100)}%
+                {stats.totalTables > 0 ? Math.round((stats.occupiedTables / stats.totalTables) * 100) : 0}%
               </p>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
@@ -228,7 +245,7 @@ const DashboardPage: React.FC = () => {
           </div>
           <div className="mt-4 flex items-center text-sm">
             <span className="text-gray-500">
-              {stats.totalTables - stats.availableTables}/{stats.totalTables} tables occupied
+              {stats.occupiedTables}/{stats.totalTables} tables occupied
             </span>
           </div>
         </div>
@@ -236,22 +253,22 @@ const DashboardPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Staff On Duty</p>
-              <p className="text-3xl font-bold text-orange-600">{Math.round(stats.totalStaff * 0.75)}</p>
+              <p className="text-sm text-gray-600">Active Branches</p>
+              <p className="text-3xl font-bold text-orange-600">{stats.totalBranches}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
-              <UserCheck className="w-8 h-8 text-orange-600" />
+              <Building className="w-8 h-8 text-orange-600" />
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
             <span className="text-gray-500">
-              of {stats.totalStaff} total staff
+              All branches operational
             </span>
           </div>
         </div>
       </div>
 
-      {/* Quick Actions and Recent Activity */}
+      {/* Quick Actions and Statistics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -274,27 +291,28 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent Activity */}
+        {/* Sales Overview */}
         <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-6">Sales Overview</h3>
           <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className={`p-2 rounded-lg ${getActivityColor(activity.type)}`}>
-                  {getActivityIcon(activity.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                  <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                </div>
-              </div>
-            ))}
+            <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+              <span className="text-sm font-medium text-blue-900">Today</span>
+              <span className="text-lg font-bold text-blue-600">{stats.todayOrders} orders</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+              <span className="text-sm font-medium text-green-900">This Week</span>
+              <span className="text-lg font-bold text-green-600">{stats.weekOrders} orders</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+              <span className="text-sm font-medium text-purple-900">This Month</span>
+              <span className="text-lg font-bold text-purple-600">{stats.monthOrders} orders</span>
+            </div>
           </div>
           <button 
             onClick={() => navigate('/reports')}
             className="w-full mt-6 text-blue-600 hover:text-blue-700 font-medium text-center py-2 hover:bg-blue-50 rounded-lg transition-colors"
           >
-            View all activity →
+            View detailed reports →
           </button>
         </div>
       </div>
@@ -303,7 +321,7 @@ const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Inventory Status</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Products</h3>
             <Package className="w-6 h-6 text-gray-400" />
           </div>
           <div className="space-y-4">
@@ -312,97 +330,70 @@ const DashboardPage: React.FC = () => {
               <span className="text-lg font-semibold">{stats.totalProducts}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">In Stock</span>
-              <span className="text-lg font-semibold text-green-600">{stats.totalProducts - stats.lowStockItems}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Low Stock</span>
-              <span className="text-lg font-semibold text-red-600">{stats.lowStockItems}</span>
+              <span className="text-sm text-gray-600">Categories</span>
+              <span className="text-lg font-semibold text-blue-600">Active</span>
             </div>
             <button 
               onClick={() => navigate('/products')}
               className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg transition-colors text-sm font-medium"
             >
-              Manage Inventory
+              Manage Products
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Operations</h3>
-            <Building className="w-6 h-6 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900">Tables</h3>
+            <Users className="w-6 h-6 text-gray-400" />
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Active Branches</span>
-              <span className="text-lg font-semibold text-green-600">{stats.activeBranches}</span>
+              <span className="text-sm text-gray-600">Available</span>
+              <span className="text-lg font-semibold text-green-600">{stats.availableTables}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Total Staff</span>
-              <span className="text-lg font-semibold">{stats.totalStaff}</span>
+              <span className="text-sm text-gray-600">Occupied</span>
+              <span className="text-lg font-semibold text-red-600">{stats.occupiedTables}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Available Tables</span>
-              <span className="text-lg font-semibold text-blue-600">{stats.availableTables}</span>
+              <span className="text-sm text-gray-600">Total</span>
+              <span className="text-lg font-semibold">{stats.totalTables}</span>
             </div>
             <button 
-              onClick={() => navigate('/branches')}
+              onClick={() => navigate('/tables')}
               className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg transition-colors text-sm font-medium"
             >
-              Manage Operations
+              Manage Tables
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Financial Overview</h3>
-            <CreditCard className="w-6 h-6 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900">Performance</h3>
+            <TrendingUp className="w-6 h-6 text-gray-400" />
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Avg Order Value</span>
-              <span className="text-lg font-semibold">${(stats.todayRevenue / stats.todayOrders).toFixed(2)}</span>
+              <span className="text-lg font-semibold">
+                ${stats.todayOrders > 0 ? (stats.todayRevenue / stats.todayOrders).toFixed(2) : '0.00'}
+              </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Processing</span>
-              <span className="text-lg font-semibold text-yellow-600">{stats.processingPayments}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">Success Rate</span>
-              <span className="text-lg font-semibold text-green-600">98.5%</span>
+              <span className="text-sm text-gray-600">Branches</span>
+              <span className="text-lg font-semibold text-green-600">{stats.totalBranches}</span>
             </div>
             <button 
-              onClick={() => navigate('/payments')}
+              onClick={() => navigate('/reports')}
               className="w-full mt-4 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg transition-colors text-sm font-medium"
             >
-              View Payments
+              View Analytics
             </button>
           </div>
         </div>
       </div>
-
-      {/* Alert Section */}
-      {stats.lowStockItems > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 text-yellow-600 mr-3" />
-            <div>
-              <h4 className="text-sm font-medium text-yellow-800">Inventory Alert</h4>
-              <p className="text-sm text-yellow-700 mt-1">
-                You have {stats.lowStockItems} items running low on stock. 
-                <button 
-                  onClick={() => navigate('/products')}
-                  className="ml-2 text-yellow-800 underline hover:text-yellow-900"
-                >
-                  Review inventory →
-                </button>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

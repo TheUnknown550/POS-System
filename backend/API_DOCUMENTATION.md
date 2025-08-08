@@ -5,7 +5,20 @@
 http://localhost:3000/api
 ```
 
+## Authentication
+All API endpoints (except auth endpoints) require JWT authentication. Include the token in the Authorization header:
+```
+Authorization: Bearer <your-jwt-token>
+```
+
 ## API Endpoints
+
+### 🔐 Authentication
+- `GET /auth/check-init` - Check if system needs initialization
+- `POST /auth/register` - Register first user and create company
+- `POST /auth/login` - User login
+- `GET /auth/me` - Get current user profile (requires auth)
+- `POST /auth/logout` - User logout (requires auth)
 
 ### 🏢 Companies
 - `GET /companies` - Get all companies
@@ -71,7 +84,107 @@ http://localhost:3000/api
 - `DELETE /payments/:id` - Refund payment
 
 ### 📊 Reports
+- `GET /reports` - Get available reports
 - `GET /reports/payments` - Payment reports (supports grouping and filtering)
+- `GET /reports/sales` - Sales reports with date filtering
+- `GET /reports/daily` - Daily summary report
+- `GET /reports/monthly` - Monthly summary report  
+- `GET /reports/products` - Product performance report
+- `GET /reports/summary` - Dashboard summary statistics
+
+### ⚕️ Health
+- `GET /health` - API health check
+
+## Authentication Examples
+
+### Check System Initialization
+```bash
+GET /api/auth/check-init
+```
+Response:
+```json
+{
+  "needsInitialization": true
+}
+```
+
+### Register First User
+```bash
+POST /api/auth/register
+{
+  "name": "Admin User",
+  "email": "admin@restaurant.com", 
+  "password": "securepassword123",
+  "companyName": "My Restaurant",
+  "companyAddress": "123 Main St",
+  "companyPhone": "555-0123"
+}
+```
+
+### Login
+```bash
+POST /api/auth/login
+{
+  "email": "admin@restaurant.com",
+  "password": "securepassword123"
+}
+```
+Response:
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "user": {
+    "id": "uuid",
+    "name": "Admin User",
+    "email": "admin@restaurant.com"
+  },
+  "token": "jwt-token-here"
+}
+```
+
+## Report Examples
+
+### Get Dashboard Summary
+```bash
+GET /api/reports/summary
+```
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "today": {
+      "orders": 15,
+      "sales": "524.50"
+    },
+    "thisWeek": {
+      "orders": 89,
+      "sales": "3247.85"
+    },
+    "thisMonth": {
+      "orders": 342,
+      "sales": "12893.20"
+    },
+    "totals": {
+      "orders": 1523,
+      "sales": "45632.10",
+      "products": 68,
+      "branches": 3
+    }
+  }
+}
+```
+
+### Get Sales Report
+```bash
+GET /api/reports/sales?startDate=2024-01-01&endDate=2024-01-31&branchId=uuid
+```
+
+### Get Product Performance
+```bash
+GET /api/reports/products?startDate=2024-01-01&endDate=2024-01-31
+```
 
 ## Example API Usage
 
@@ -79,7 +192,10 @@ http://localhost:3000/api
 ```bash
 POST /api/companies
 {
-  "name": "My Restaurant Chain"
+  "name": "My Restaurant Chain",
+  "address": "456 Business Ave",
+  "phone": "555-0199",
+  "email": "contact@restaurant.com"
 }
 ```
 

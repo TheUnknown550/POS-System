@@ -145,3 +145,68 @@ export interface AuthUser {
 }
 
 export type UserRole = 'admin' | 'manager' | 'staff' | 'cashier';
+
+// Report Types
+export interface ReportSummary {
+  today: {
+    orders: number;
+    sales: string;
+  };
+  thisWeek: {
+    orders: number;
+    sales: string;
+  };
+  thisMonth: {
+    orders: number;
+    sales: string;
+  };
+  totals: {
+    orders: number;
+    sales: string;
+    products: number;
+    branches: number;
+  };
+}
+
+export interface SalesReport {
+  id: string;
+  date: string;
+  branch: string;
+  total: number;
+  status: string;
+  paymentStatus: string;
+}
+
+export interface DailyReport {
+  date: string;
+  totalOrders: number;
+  totalSales: string;
+  totalPayments: string;
+  paidOrders: number;
+  pendingOrders: number;
+  averageOrderValue: string;
+}
+
+export interface MonthlyReport {
+  year: number;
+  month: number;
+  totalOrders: number;
+  totalSales: string;
+  paidOrders: number;
+  pendingOrders: number;
+  averageOrderValue: string;
+  dailyBreakdown: Record<number, { orders: number; sales: number }>;
+}
+
+export interface ProductReport {
+  name: string;
+  totalQuantity: number;
+  totalRevenue: number;
+  orderCount: number;
+}
+
+export interface PaymentReport {
+  key: string;
+  total_amount: number;
+  payment_count: number;
+}
