@@ -1,17 +1,25 @@
 {
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "migration:generate": "npx sequelize-cli migration:generate --name",
+    "model:generate": "npx sequelize-cli model:generate --name"
   },
-  "name": "backend",
-  "version": "1.0.0",
-  "main": "index.js",
-  "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://your-repo-url.git"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
@@ -27,6 +35,7 @@
     "@types/pg": "^8.15.5",
     "@types/sequelize": "^4.28.20",
     "nodemon": "^3.1.10",
+    "sequelize-cli": "^6.6.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
