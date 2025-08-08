@@ -8,13 +8,10 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
-
     "migrate": "npx sequelize-cli db:migrate",
     "migrate:undo": "npx sequelize-cli db:migrate:undo",
     "migration:generate": "npx sequelize-cli migration:generate --name",
-    
     "model:generate": "npx sequelize-cli model:generate --name",
-    
     "seed:generate": "npx sequelize-cli seed:generate --name",
     "seed:run": "npx sequelize-cli db:seed:all",
     "seed:undo": "npx sequelize-cli db:seed:undo",
@@ -28,6 +25,7 @@
     "url": "git+https://your-repo-url.git"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
