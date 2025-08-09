@@ -36,6 +36,18 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+    address: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

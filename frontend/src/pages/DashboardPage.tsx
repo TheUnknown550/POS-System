@@ -108,9 +108,23 @@ const DashboardPage: React.FC = () => {
           allTables = tablesResponses.flatMap(response => response.data || []);
         }
 
-        // Fetch all products (products appear to be company-wide, not branch-specific)
-        const productsResponse = await apiService.getProducts();
-        const products = productsResponse.data || [];
+        // Fetch products based on selected branch
+        let products = [];
+        if (selectedBranch) {
+          // Fetch products for specific branch
+          const productsResponse = await apiService.getProducts({ branch_id: selectedBranch });
+          products = productsResponse.data || [];
+        } else if (branches.length > 0) {
+          // Fetch products from all branches
+          const allProductsPromises = branches.map(branch => 
+            apiService.getProducts({ branch_id: branch.id }).catch(err => {
+              console.error(`Error fetching products for branch ${branch.id}:`, err);
+              return { data: [] };
+            })
+          );
+          const productsResponses = await Promise.all(allProductsPromises);
+          products = productsResponses.flatMap(response => response.data || []);
+        }
         
         const availableTables = allTables.filter(table => table.status === 'available').length;
         const occupiedTables = allTables.filter(table => table.status === 'occupied').length;

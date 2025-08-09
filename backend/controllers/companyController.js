@@ -153,7 +153,7 @@ class CompanyController {
   static async updateCompany(req, res) {
     try {
       const { id } = req.params;
-      const { name } = req.body;
+      const { name, address, phone, email } = req.body;
 
       const company = await Company.findByPk(id);
       if (!company) {
@@ -163,7 +163,13 @@ class CompanyController {
         });
       }
 
-      await company.update({ name });
+      const updateData = {};
+      if (name !== undefined) updateData.name = name;
+      if (address !== undefined) updateData.address = address;
+      if (phone !== undefined) updateData.phone = phone;
+      if (email !== undefined) updateData.email = email;
+
+      await company.update(updateData);
 
       res.json({
         success: true,

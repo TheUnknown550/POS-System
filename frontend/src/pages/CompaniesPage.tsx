@@ -19,6 +19,14 @@ const CompaniesPage: React.FC = () => {
     email: ''
   });
 
+  // Form state for editing company
+  const [editCompanyData, setEditCompanyData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: ''
+  });
+
   const loadCompanies = async () => {
     setIsLoading(true);
     setError(null);
@@ -69,7 +77,44 @@ const CompaniesPage: React.FC = () => {
 
   const editCompany = (company: Company) => {
     setSelectedCompany(company);
+    setEditCompanyData({
+      name: company.name,
+      address: company.address || '',
+      phone: company.phone || '',
+      email: company.email || ''
+    });
     setShowEditModal(true);
+  };
+
+  const updateCompany = async () => {
+    if (!selectedCompany || !editCompanyData.name.trim()) {
+      alert('Company name is required');
+      return;
+    }
+
+    try {
+      const response = await apiService.updateCompany(selectedCompany.id, editCompanyData);
+      if (response.success && response.data) {
+        setCompanies(companies.map(c => 
+          c.id === selectedCompany.id 
+            ? { ...c, ...response.data }
+            : c
+        ));
+        setShowEditModal(false);
+        setSelectedCompany(null);
+      }
+    } catch (err) {
+      console.error('Error updating company:', err);
+      alert('Failed to update company');
+    }
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditCompanyData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const createCompany = async () => {
@@ -367,8 +412,11 @@ const CompaniesPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedCompany.name}
+                  name="name"
+                  value={editCompanyData.name}
+                  onChange={handleEditInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
               <div>
@@ -377,7 +425,9 @@ const CompaniesPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  defaultValue={selectedCompany.address}
+                  name="address"
+                  value={editCompanyData.address}
+                  onChange={handleEditInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -387,7 +437,9 @@ const CompaniesPage: React.FC = () => {
                 </label>
                 <input
                   type="tel"
-                  defaultValue={selectedCompany.phone}
+                  name="phone"
+                  value={editCompanyData.phone}
+                  onChange={handleEditInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -397,7 +449,9 @@ const CompaniesPage: React.FC = () => {
                 </label>
                 <input
                   type="email"
-                  defaultValue={selectedCompany.email}
+                  name="email"
+                  value={editCompanyData.email}
+                  onChange={handleEditInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -410,7 +464,7 @@ const CompaniesPage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={updateCompany}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Save Changes
