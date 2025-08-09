@@ -143,7 +143,16 @@ class BranchController {
   // POST /api/branches
   static async createBranch(req, res) {
     try {
-      const { company_id, name, address } = req.body;
+      const { 
+        company_id, 
+        name, 
+        address, 
+        phone, 
+        email, 
+        manager_name, 
+        status = 'active', 
+        opening_hours 
+      } = req.body;
 
       if (!company_id || !name) {
         return res.status(400).json({
@@ -164,12 +173,27 @@ class BranchController {
       const branch = await Branch.create({
         company_id,
         name,
-        address
+        address,
+        phone,
+        email,
+        manager_name,
+        status,
+        opening_hours
+      });
+
+      // Fetch created branch with associations
+      const createdBranch = await Branch.findByPk(branch.id, {
+        include: [
+          {
+            model: Company,
+            as: 'company'
+          }
+        ]
       });
 
       res.status(201).json({
         success: true,
-        data: branch,
+        data: createdBranch,
         message: 'Branch created successfully'
       });
     } catch (error) {
@@ -186,7 +210,15 @@ class BranchController {
   static async updateBranch(req, res) {
     try {
       const { id } = req.params;
-      const { name, address } = req.body;
+      const { 
+        name, 
+        address, 
+        phone, 
+        email, 
+        manager_name, 
+        status, 
+        opening_hours 
+      } = req.body;
 
       const branch = await Branch.findByPk(id);
       if (!branch) {
@@ -196,11 +228,31 @@ class BranchController {
         });
       }
 
-      await branch.update({ name, address });
+      // Prepare update data object
+      const updateData = {};
+      if (name !== undefined) updateData.name = name;
+      if (address !== undefined) updateData.address = address;
+      if (phone !== undefined) updateData.phone = phone;
+      if (email !== undefined) updateData.email = email;
+      if (manager_name !== undefined) updateData.manager_name = manager_name;
+      if (status !== undefined) updateData.status = status;
+      if (opening_hours !== undefined) updateData.opening_hours = opening_hours;
+
+      await branch.update(updateData);
+
+      // Fetch updated branch with associations
+      const updatedBranch = await Branch.findByPk(id, {
+        include: [
+          {
+            model: Company,
+            as: 'company'
+          }
+        ]
+      });
 
       res.json({
         success: true,
-        data: branch,
+        data: updatedBranch,
         message: 'Branch updated successfully'
       });
     } catch (error) {

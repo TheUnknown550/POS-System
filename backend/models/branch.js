@@ -59,6 +59,24 @@ module.exports = (sequelize, DataTypes) => {
     address: {
       type: DataTypes.STRING
     },
+    phone: {
+      type: DataTypes.STRING
+    },
+    email: {
+      type: DataTypes.STRING
+    },
+    manager_name: {
+      type: DataTypes.STRING
+    },
+    status: {
+      type: DataTypes.ENUM('active', 'inactive', 'maintenance'),
+      allowNull: false,
+      defaultValue: 'active'
+    },
+    opening_hours: {
+      type: DataTypes.TEXT,
+      comment: 'JSON string containing opening hours for each day'
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW

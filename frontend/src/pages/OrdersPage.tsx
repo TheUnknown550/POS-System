@@ -1,54 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Clock, CheckCircle, X, Eye, DollarSign } from 'lucide-react';
 import { apiService } from '../services/api';
-import type { Order, Company, Branch } from '../types';
+import { useCompany } from '../context/CompanyContext';
+import type { Order } from '../types';
 
 const OrdersPage: React.FC = () => {
+  const { selectedBranch, currentCompany, currentBranch } = useCompany();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
-  const loadCompanies = async () => {
-    try {
-      const response = await apiService.getCompanies();
-      if (response.success && response.data) {
-        setCompanies(response.data);
-        if (response.data.length === 1) {
-          setSelectedCompanyId(response.data[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading companies:', err);
-    }
-  };
-
-  const loadBranches = async (companyId: string) => {
-    try {
-      const response = await apiService.getBranchesByCompany(companyId);
-      if (response.success && response.data) {
-        setBranches(response.data);
-        if (response.data.length === 1) {
-          setSelectedBranchId(response.data[0].id);
-        } else {
-          setSelectedBranchId('');
-          setOrders([]);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading branches:', err);
-      setBranches([]);
-    }
-  };
-
-  const loadOrders = async (branchId: string) => {
-    if (!branchId) {
+  const loadOrders = async () => {
+    if (!selectedBranch) {
       setOrders([]);
       return;
     }
@@ -57,7 +23,7 @@ const OrdersPage: React.FC = () => {
     setError(null);
     
     try {
-      const params: any = { branch_id: branchId };
+      const params: any = { branch_id: selectedBranch };
       if (statusFilter) params.status = statusFilter;
       
       const response = await apiService.getOrders(params);
@@ -74,26 +40,12 @@ const OrdersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadCompanies();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCompanyId) {
-      loadBranches(selectedCompanyId);
-    } else {
-      setBranches([]);
-      setSelectedBranchId('');
-      setOrders([]);
-    }
-  }, [selectedCompanyId]);
-
-  useEffect(() => {
-    if (selectedBranchId) {
-      loadOrders(selectedBranchId);
+    if (selectedBranch) {
+      loadOrders();
     } else {
       setOrders([]);
     }
-  }, [selectedBranchId, statusFilter]);
+  }, [selectedBranch, statusFilter]);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,7 +125,7 @@ const OrdersPage: React.FC = () => {
           <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Orders</p>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={() => loadOrders(selectedBranchId)} 
+            onClick={() => loadOrders()} 
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Retry
@@ -189,86 +141,33 @@ const OrdersPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-gray-600">Track and manage all restaurant orders</p>
+          <p className="text-gray-600">
+            Track and manage all restaurant orders
+            {currentCompany && currentBranch && (
+              <span className="text-blue-600"> • {currentCompany.name} - {currentBranch.name}</span>
+            )}
+          </p>
         </div>
-        <button
-          onClick={() => setShowNewOrderModal(true)}
-          disabled={!selectedBranchId}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          New Order
-        </button>
-      </div>
-
-      {/* Company and Branch Selection */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Company
-            </label>
-            <select
-              value={selectedCompanyId}
-              onChange={(e) => setSelectedCompanyId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Choose a company...</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Branch
-            </label>
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              disabled={!selectedCompanyId || branches.length === 0}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Choose a branch...</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => loadOrders()}
+            className="flex items-center px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Refresh
+          </button>
+          <button
+            onClick={() => setShowNewOrderModal(true)}
+            disabled={!selectedBranch}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            New Order
+          </button>
         </div>
-
-        {!selectedCompanyId && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              Please select a company to view its branches and orders.
-            </p>
-          </div>
-        )}
-
-        {selectedCompanyId && branches.length === 0 && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm">
-              No branches found for this company. Create a branch first to manage orders.
-            </p>
-          </div>
-        )}
-
-        {selectedCompanyId && !selectedBranchId && branches.length > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              Please select a branch to view its orders.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Orders Display */}
-      {selectedBranchId && (
+      {selectedBranch && (
         <>
           {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-4">

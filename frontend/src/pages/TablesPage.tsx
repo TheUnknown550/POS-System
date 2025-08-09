@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { apiService } from '../services/api';
-import type { BranchTable, Company, Branch } from '../types';
+import { useCompany } from '../context/CompanyContext';
+import type { BranchTable } from '../types';
 
 const TablesPage: React.FC = () => {
+  const { selectedBranch, currentCompany, currentBranch } = useCompany();
   const [tables, setTables] = useState<BranchTable[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -18,42 +16,8 @@ const TablesPage: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<BranchTable | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const loadCompanies = async () => {
-    try {
-      const response = await apiService.getCompanies();
-      if (response.success && response.data) {
-        setCompanies(response.data);
-        // Auto-select first company if only one exists
-        if (response.data.length === 1) {
-          setSelectedCompanyId(response.data[0].id);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading companies:', err);
-    }
-  };
-
-  const loadBranches = async (companyId: string) => {
-    try {
-      const response = await apiService.getBranchesByCompany(companyId);
-      if (response.success && response.data) {
-        setBranches(response.data);
-        // Auto-select first branch if only one exists
-        if (response.data.length === 1) {
-          setSelectedBranchId(response.data[0].id);
-        } else {
-          setSelectedBranchId('');
-          setTables([]);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading branches:', err);
-      setBranches([]);
-    }
-  };
-
-  const loadTables = async (branchId: string) => {
-    if (!branchId) {
+  const loadTables = async () => {
+    if (!selectedBranch) {
       setTables([]);
       return;
     }
@@ -62,7 +26,7 @@ const TablesPage: React.FC = () => {
     setError(null);
     
     try {
-      const response = await apiService.getTablesByBranch(branchId);
+      const response = await apiService.getTablesByBranch(selectedBranch);
       if (response.success && response.data) {
         setTables(response.data);
       }
@@ -76,27 +40,13 @@ const TablesPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadCompanies();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCompanyId) {
-      loadBranches(selectedCompanyId);
-    } else {
-      setBranches([]);
-      setSelectedBranchId('');
-      setTables([]);
-    }
-  }, [selectedCompanyId]);
-
-  useEffect(() => {
-    if (selectedBranchId) {
-      loadTables(selectedBranchId);
+    if (selectedBranch) {
+      loadTables();
     } else {
       setTables([]);
       setIsLoading(false);
     }
-  }, [selectedBranchId]);
+  }, [selectedBranch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -160,7 +110,7 @@ const TablesPage: React.FC = () => {
       return;
     }
 
-    if (!selectedBranchId) {
+    if (!selectedBranch) {
       alert('Please select a branch first');
       return;
     }
@@ -170,7 +120,7 @@ const TablesPage: React.FC = () => {
         table_number: newTableNumber,
         seats: parseInt(newTableSeats) || 4,
         status: newTableStatus as 'available' | 'occupied' | 'reserved',
-        branch_id: selectedBranchId
+        branch_id: selectedBranch
       };
 
       const response = await apiService.createTable(tableData);
@@ -212,7 +162,7 @@ const TablesPage: React.FC = () => {
           <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Tables</p>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={() => loadTables(selectedBranchId)} 
+            onClick={() => loadTables()} 
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
           >
             Retry
@@ -228,86 +178,33 @@ const TablesPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Tables</h1>
-          <p className="text-gray-600">Manage restaurant table layout and status</p>
+          <p className="text-gray-600">
+            Manage restaurant table layout and status
+            {currentCompany && currentBranch && (
+              <span className="text-blue-600"> • {currentCompany.name} - {currentBranch.name}</span>
+            )}
+          </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          disabled={!selectedBranchId}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add Table
-        </button>
-      </div>
-
-      {/* Company and Branch Selection */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Company
-            </label>
-            <select
-              value={selectedCompanyId}
-              onChange={(e) => setSelectedCompanyId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Choose a company...</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Branch
-            </label>
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              disabled={!selectedCompanyId || branches.length === 0}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            >
-              <option value="">Choose a branch...</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => loadTables()}
+            className="flex items-center px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Refresh
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            disabled={!selectedBranch}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Table
+          </button>
         </div>
-
-        {!selectedCompanyId && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              Please select a company to view its branches and tables.
-            </p>
-          </div>
-        )}
-
-        {selectedCompanyId && branches.length === 0 && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm">
-              No branches found for this company. Create a branch first to manage tables.
-            </p>
-          </div>
-        )}
-
-        {selectedCompanyId && !selectedBranchId && branches.length > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-800 text-sm">
-              Please select a branch to view its tables.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Tables Display */}
-      {selectedBranchId && (
+      {selectedBranch && (
         <>
           {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

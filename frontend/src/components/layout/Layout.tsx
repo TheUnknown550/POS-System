@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import CompanySelectionRequired from '../CompanySelectionRequired';
+import { useCompany } from '../../context/CompanyContext';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -11,6 +13,12 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const { hasValidSelection } = useCompany();
+  const location = useLocation();
+
+  // Allow access to company and branch management pages without workspace selection
+  const pagesAllowedWithoutSelection = ['/companies', '/branches'];
+  const isPageAllowedWithoutSelection = pagesAllowedWithoutSelection.includes(location.pathname);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -69,9 +77,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
-          <div className="p-6">
-            {children || <Outlet />}
-          </div>
+          {hasValidSelection || isPageAllowedWithoutSelection ? (
+            <div className="p-6">
+              {children || <Outlet />}
+            </div>
+          ) : (
+            <CompanySelectionRequired />
+          )}
         </main>
       </div>
     </div>

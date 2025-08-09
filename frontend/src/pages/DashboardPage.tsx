@@ -14,7 +14,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { apiService } from '../services/api';
-import type { ReportSummary, DailyReport } from '../types';
+import { useCompany } from '../context/CompanyContext';
 
 interface DashboardStats {
   todayRevenue: number;
@@ -32,6 +32,7 @@ interface DashboardStats {
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedCompany, currentCompany, currentBranch, branches } = useCompany();
   const [stats, setStats] = useState<DashboardStats>({
     todayRevenue: 0,
     todayOrders: 0,
@@ -50,37 +51,105 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     const loadDashboardData = async () => {
+      if (!selectedCompany) {
+        // Reset stats if no company selected
+        setStats({
+          todayRevenue: 0,
+          todayOrders: 0,
+          weekOrders: 0,
+          monthOrders: 0,
+          totalOrders: 0,
+          totalRevenue: 0,
+          totalProducts: 0,
+          totalBranches: 0,
+          availableTables: 0,
+          occupiedTables: 0,
+          totalTables: 0
+        });
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       
       try {
-        // Fetch summary report from backend
-        const summaryResponse = await apiService.getSummaryReport();
-        const summary: ReportSummary = summaryResponse.data;
-
-        // Fetch today's detailed report
-        const dailyResponse = await apiService.getDailyReport();
-        const daily: DailyReport = dailyResponse.data;
-
-        // Fetch tables data
-        const tablesResponse = await apiService.getTables();
-        const tables = tablesResponse.data || [];
+        let allOrders: any[] = [];
+        let allTables: any[] = [];
         
-        const availableTables = tables.filter(table => table.status === 'available').length;
-        const occupiedTables = tables.filter(table => table.status === 'occupied').length;
+        if (selectedBranch) {
+          // Single branch selected - fetch data for that branch only
+          const ordersResponse = await apiService.getOrdersByBranch(selectedBranch);
+          allOrders = ordersResponse.data || [];
+          
+          const tablesResponse = await apiService.getTablesByBranch(selectedBranch);
+          allTables = tablesResponse.data || [];
+        } else {
+          // "All Branches" selected - fetch data for all branches of the company
+          const allOrdersPromises = branches.map(branch => 
+            apiService.getOrdersByBranch(branch.id).catch(err => {
+              console.error(`Error fetching orders for branch ${branch.id}:`, err);
+              return { data: [] };
+            })
+          );
+          
+          const allTablesPromises = branches.map(branch => 
+            apiService.getTablesByBranch(branch.id).catch(err => {
+              console.error(`Error fetching tables for branch ${branch.id}:`, err);
+              return { data: [] };
+            })
+          );
+          
+          const ordersResponses = await Promise.all(allOrdersPromises);
+          const tablesResponses = await Promise.all(allTablesPromises);
+          
+          // Combine all orders and tables from all branches
+          allOrders = ordersResponses.flatMap(response => response.data || []);
+          allTables = tablesResponses.flatMap(response => response.data || []);
+        }
+
+        // Fetch all products (products appear to be company-wide, not branch-specific)
+        const productsResponse = await apiService.getProducts();
+        const products = productsResponse.data || [];
+        
+        const availableTables = allTables.filter(table => table.status === 'available').length;
+        const occupiedTables = allTables.filter(table => table.status === 'occupied').length;
+
+        // Calculate today's stats
+        const today = new Date().toISOString().split('T')[0];
+        const todayOrders = allOrders.filter(order => order.order_date?.startsWith(today) || false);
+        const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+
+        // Calculate week and month stats
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+        const weekOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.order_date || '');
+          return orderDate >= weekAgo;
+        }).length;
+
+        const monthOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.order_date || '');
+          return orderDate >= monthAgo;
+        }).length;
+
+        const totalRevenue = allOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
         setStats({
-          todayRevenue: parseFloat(summary.today.sales),
-          todayOrders: summary.today.orders,
-          weekOrders: summary.thisWeek.orders,
-          monthOrders: summary.thisMonth.orders,
-          totalOrders: summary.totals.orders,
-          totalRevenue: parseFloat(summary.totals.sales),
-          totalProducts: summary.totals.products,
-          totalBranches: summary.totals.branches,
+          todayRevenue,
+          todayOrders: todayOrders.length,
+          weekOrders,
+          monthOrders,
+          totalOrders: allOrders.length,
+          totalRevenue,
+          totalProducts: products.length,
+          totalBranches: selectedBranch ? 1 : branches.length, // Show 1 for single branch, all branches count for "All Branches"
           availableTables,
           occupiedTables,
-          totalTables: tables.length
+          totalTables: allTables.length
         });
       } catch (err) {
         console.error('Error loading dashboard data:', err);
@@ -91,7 +160,7 @@ const DashboardPage: React.FC = () => {
     };
 
     loadDashboardData();
-  }, []);
+  }, [selectedBranch, selectedCompany, branches]);
 
   const quickActions = [
     {
@@ -182,7 +251,18 @@ const DashboardPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
-            <p className="text-blue-100">Here's what's happening with your restaurant today.</p>
+            <p className="text-blue-100">
+              Here's what's happening with your restaurant today.
+              {currentCompany && (
+                <span className="block mt-1">
+                  <strong>Viewing:</strong> {currentCompany.name}
+                  {selectedBranch && currentBranch ? 
+                    ` - ${currentBranch.name}` : 
+                    ` - All Branches (${branches.length} branches)`
+                  }
+                </span>
+              )}
+            </p>
           </div>
           <div className="text-right">
             <p className="text-blue-100 text-sm">Today</p>

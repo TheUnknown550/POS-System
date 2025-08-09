@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CompanyProvider } from './context/CompanyContext';
 import Layout from './components/layout/Layout';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -57,158 +58,160 @@ const PublicRoute: React.FC<PublicRouteProps> = ({ children }) => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
-            {/* Public Routes */}
-            <Route
-              path="/"
-              element={
-                <PublicRoute>
-                  <LandingPage />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <LoginPage />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <RegisterPage />
-                </PublicRoute>
-              }
-            />
+      <CompanyProvider>
+        <Router>
+          <div className="App">
+            <Routes>
+              {/* Public Routes */}
+              <Route
+                path="/"
+                element={
+                  <PublicRoute>
+                    <LandingPage />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/login"
+                element={
+                  <PublicRoute>
+                    <LoginPage />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PublicRoute>
+                    <RegisterPage />
+                  </PublicRoute>
+                }
+              />
 
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <DashboardPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/companies"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <CompaniesPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/branches"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <BranchesPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/staff"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <StaffPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/products"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ProductsPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/orders"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <OrdersPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/tables"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <TablesPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payments"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <PaymentsPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ReportsPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <SettingsPage />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected Routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <DashboardPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/companies"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <CompaniesPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/branches"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <BranchesPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/staff"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <StaffPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ProductsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <OrdersPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tables"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <TablesPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <PaymentsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ReportsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <SettingsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* 404 Route */}
-            <Route
-              path="*"
-              element={
-                <div className="min-h-screen flex items-center justify-center">
-                  <div className="text-center">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-                    <p className="text-gray-600 mb-4">Page not found</p>
-                    <button
-                      onClick={() => window.history.back()}
-                      className="text-blue-600 hover:text-blue-500"
-                    >
-                      Go back
-                    </button>
+              {/* 404 Route */}
+              <Route
+                path="*"
+                element={
+                  <div className="min-h-screen flex items-center justify-center">
+                    <div className="text-center">
+                      <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+                      <p className="text-gray-600 mb-4">Page not found</p>
+                      <button
+                        onClick={() => window.history.back()}
+                        className="text-blue-600 hover:text-blue-500"
+                      >
+                        Go back
+                      </button>
+                    </div>
                   </div>
-                </div>
-              }
-            />
-          </Routes>
-        </div>
-      </Router>
+                }
+              />
+            </Routes>
+          </div>
+        </Router>
+      </CompanyProvider>
     </AuthProvider>
   );
 }

@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Clock, Download, RefreshCw, BarChart3 } from 'lucide-react';
+import {
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  ShoppingCart,
+  BarChart3,
+  Calendar
+} from 'lucide-react';
 import { apiService } from '../services/api';
+import { useCompany } from '../context/CompanyContext';
 
 interface SalesData {
   date: string;
@@ -17,15 +26,52 @@ interface TopProduct {
   revenue: number;
 }
 
+interface SummaryData {
+  today: {
+    orders: number;
+    sales: string;
+  };
+  thisWeek: {
+    orders: number;
+    sales: string;
+  };
+  thisMonth: {
+    orders: number;
+    sales: string;
+  };
+  totals: {
+    orders: number;
+    sales: string;
+    products: number;
+    branches: number;
+  };
+}
+
 const ReportsPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<string>('week');
+  const { selectedCompany, selectedBranch, currentCompany, currentBranch } = useCompany();
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
-  const [summaryData, setSummaryData] = useState<any>(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+  const [dateRange, setDateRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [growthData, setGrowthData] = useState({
+    revenueGrowth: 0,
+    orderGrowth: 0,
+    customerGrowth: 0
+  });
+
+  const calculateGrowth = (current: number, previous: number): number => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
 
   const loadReportsData = async () => {
+    if (!selectedCompany) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     
@@ -35,29 +81,48 @@ const ReportsPage: React.FC = () => {
       const startDate = new Date();
       
       switch (dateRange) {
+        case 'today':
+          startDate.setDate(endDate.getDate());
+          startDate.setHours(0, 0, 0, 0);
+          break;
         case 'week':
           startDate.setDate(endDate.getDate() - 7);
           break;
         case 'month':
           startDate.setMonth(endDate.getMonth() - 1);
           break;
+        case 'quarter':
+          startDate.setMonth(endDate.getMonth() - 3);
+          break;
         case 'year':
           startDate.setFullYear(endDate.getFullYear() - 1);
           break;
         default:
-          startDate.setDate(endDate.getDate() - 7);
+          startDate.setMonth(endDate.getMonth() - 1);
       }
 
-      const [summaryResponse, salesResponse, productResponse] = await Promise.all([
+      // Calculate previous period for growth comparison
+      const periodLength = endDate.getTime() - startDate.getTime();
+      const previousEndDate = new Date(startDate.getTime() - 1);
+      const previousStartDate = new Date(startDate.getTime() - periodLength);
+
+      const params = {
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        ...(selectedBranch && { branchId: selectedBranch })
+      };
+
+      const previousParams = {
+        startDate: previousStartDate.toISOString().split('T')[0],
+        endDate: previousEndDate.toISOString().split('T')[0],
+        ...(selectedBranch && { branchId: selectedBranch })
+      };
+
+      const [summaryResponse, salesResponse, productResponse, previousSalesResponse] = await Promise.all([
         apiService.getSummaryReport(),
-        apiService.getSalesReport({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        }),
-        apiService.getProductReport({
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        })
+        apiService.getSalesReport(params),
+        apiService.getProductReport(params),
+        apiService.getSalesReport(previousParams)
       ]);
 
       if (summaryResponse.success) {
@@ -70,9 +135,26 @@ const ReportsPage: React.FC = () => {
           date: item.date,
           revenue: parseFloat(item.total) || 0,
           orders: 1, // Each item represents an order
-          customers: 1 // Assuming one customer per order for now
+          customers: 1 // Estimate unique customers (could be improved with actual customer tracking)
         }));
         setSalesData(transformedSalesData);
+
+        // Calculate growth rates
+        if (previousSalesResponse.success && previousSalesResponse.data) {
+          const currentRevenue = transformedSalesData.reduce((sum, day) => sum + day.revenue, 0);
+          const currentOrders = transformedSalesData.length;
+          const currentCustomers = transformedSalesData.length; // Simple estimate
+
+          const previousRevenue = previousSalesResponse.data.reduce((sum: number, item: any) => sum + (parseFloat(item.total) || 0), 0);
+          const previousOrders = previousSalesResponse.data.length;
+          const previousCustomers = previousSalesResponse.data.length;
+
+          setGrowthData({
+            revenueGrowth: calculateGrowth(currentRevenue, previousRevenue),
+            orderGrowth: calculateGrowth(currentOrders, previousOrders),
+            customerGrowth: calculateGrowth(currentCustomers, previousCustomers)
+          });
+        }
       }
 
       if (productResponse.success && productResponse.data) {
@@ -95,8 +177,12 @@ const ReportsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadReportsData();
-  }, [dateRange]);
+    if (selectedCompany) {
+      loadReportsData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [dateRange, selectedBranch, selectedCompany]);
 
   // Use summary data if available, otherwise calculate from sales data
   const totalRevenue = summaryData ? parseFloat(summaryData.totals?.sales || '0') : salesData.reduce((sum, day) => sum + day.revenue, 0);
@@ -104,10 +190,8 @@ const ReportsPage: React.FC = () => {
   const totalCustomers = salesData.reduce((sum, day) => sum + day.customers, 0);
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  // Calculate growth (mock calculation)
-  const revenueGrowth = 12.5;
-  const orderGrowth = 8.3;
-  const customerGrowth = 15.2;
+  // Use calculated growth data
+  const { revenueGrowth, orderGrowth, customerGrowth } = growthData;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -150,34 +234,28 @@ const ReportsPage: React.FC = () => {
     );
   }
 
+  // This content will only show when user has selected company via global context
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600">Track performance and gain insights into your business</p>
+          <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+          <p className="text-gray-600 mt-1">
+            Viewing data for {currentCompany?.name || 'Unknown Company'} - {currentBranch?.name || 'Unknown Branch'}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center space-x-4">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm"
           >
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
-            <option value="year">This Year</option>
+            <option value="week">Last Week</option>
+            <option value="month">Last Month</option>
+            <option value="quarter">Last Quarter</option>
+            <option value="year">Last Year</option>
           </select>
-          <button className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <RefreshCw className="w-5 h-5 mr-2" />
-            Refresh
-          </button>
-          <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <Download className="w-5 h-5 mr-2" />
-            Export
-          </button>
         </div>
       </div>
 
@@ -256,26 +334,34 @@ const ReportsPage: React.FC = () => {
           </div>
           
           <div className="space-y-4">
-            {salesData.map((day) => (
-              <div key={day.date} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm font-medium text-gray-900">{formatDate(day.date)}</span>
-                </div>
-                <div className="flex items-center space-x-6">
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900">{formatCurrency(day.revenue)}</div>
-                    <div className="text-xs text-gray-500">{day.orders} orders</div>
+            {salesData.length > 0 ? (
+              salesData.map((day) => (
+                <div key={day.date} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-gray-900">{formatDate(day.date)}</span>
                   </div>
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(day.revenue / Math.max(...salesData.map(d => d.revenue))) * 100}%` }}
-                    ></div>
+                  <div className="flex items-center space-x-6">
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(day.revenue)}</div>
+                      <div className="text-xs text-gray-500">{day.orders} orders</div>
+                    </div>
+                    <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(day.revenue / Math.max(...salesData.map(d => d.revenue))) * 100}%` }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-sm">No sales data available</p>
+                <p className="text-gray-400 text-xs">Create orders to see daily sales analytics</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -287,23 +373,31 @@ const ReportsPage: React.FC = () => {
           </div>
           
           <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={product.id} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded-lg text-sm font-semibold text-gray-600">
-                    {index + 1}
+            {topProducts.length > 0 ? (
+              topProducts.map((product, index) => (
+                <div key={product.id} className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded-lg text-sm font-semibold text-gray-600">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                      <div className="text-xs text-gray-500">{product.category}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                    <div className="text-xs text-gray-500">{product.category}</div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-gray-900">{formatCurrency(product.revenue)}</div>
+                    <div className="text-xs text-gray-500">{product.sales} sold</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-gray-900">{formatCurrency(product.revenue)}</div>
-                  <div className="text-xs text-gray-500">{product.sales} sold</div>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-sm">No product data available</p>
+                <p className="text-gray-400 text-xs">Add products and create orders to see analytics</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -315,32 +409,36 @@ const ReportsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mx-auto mb-3">
-              <Clock className="w-6 h-6 text-green-600" />
+              <DollarSign className="w-6 h-6 text-green-600" />
             </div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Peak Hours</h4>
-            <p className="text-xs text-gray-600 mb-1">Busiest time: 7-9 PM</p>
-            <p className="text-2xl font-bold text-green-600">67%</p>
-            <p className="text-xs text-gray-500">of daily revenue</p>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Average Order Value</h4>
+            <p className="text-xs text-gray-600 mb-1">Per transaction</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(avgOrderValue)}</p>
+            <p className="text-xs text-gray-500">across all orders</p>
           </div>
 
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3">
-              <Users className="w-6 h-6 text-blue-600" />
+              <BarChart3 className="w-6 h-6 text-blue-600" />
             </div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Customer Retention</h4>
-            <p className="text-xs text-gray-600 mb-1">Returning customers</p>
-            <p className="text-2xl font-bold text-blue-600">42%</p>
-            <p className="text-xs text-gray-500">of total orders</p>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Revenue Growth</h4>
+            <p className="text-xs text-gray-600 mb-1">vs previous period</p>
+            <p className={`text-2xl font-bold ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {revenueGrowth >= 0 ? '+' : ''}{revenueGrowth.toFixed(1)}%
+            </p>
+            <p className="text-xs text-gray-500">period comparison</p>
           </div>
 
           <div className="text-center">
             <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mx-auto mb-3">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
+              <ShoppingCart className="w-6 h-6 text-purple-600" />
             </div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Growth Rate</h4>
-            <p className="text-xs text-gray-600 mb-1">Month over month</p>
-            <p className="text-2xl font-bold text-purple-600">+23%</p>
-            <p className="text-xs text-gray-500">revenue increase</p>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Order Growth</h4>
+            <p className="text-xs text-gray-600 mb-1">vs previous period</p>
+            <p className={`text-2xl font-bold ${orderGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {orderGrowth >= 0 ? '+' : ''}{orderGrowth.toFixed(1)}%
+            </p>
+            <p className="text-xs text-gray-500">order volume change</p>
           </div>
         </div>
       </div>
