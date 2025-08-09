@@ -1,85 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import type { BranchTable } from '../types';
+import { apiService } from '../services/api';
+import type { BranchTable, Company, Branch } from '../types';
 
 const TablesPage: React.FC = () => {
   const [tables, setTables] = useState<BranchTable[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [newTableNumber, setNewTableNumber] = useState('');
+  const [newTableSeats, setNewTableSeats] = useState('4');
+  const [newTableStatus, setNewTableStatus] = useState('available');
   const [selectedTable, setSelectedTable] = useState<BranchTable | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  // Mock data for now
-  useEffect(() => {
-    const loadMockData = async () => {
-      setIsLoading(true);
-
-      const mockTables: BranchTable[] = [
-        {
-          id: '1',
-          branch_id: '1',
-          table_number: '1',
-          status: 'available',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          branch_id: '1',
-          table_number: '2',
-          status: 'occupied',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          branch_id: '1',
-          table_number: '3',
-          status: 'reserved',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          branch_id: '1',
-          table_number: '4',
-          status: 'available',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '5',
-          branch_id: '1',
-          table_number: '5',
-          status: 'occupied',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '6',
-          branch_id: '1',
-          table_number: '6',
-          status: 'available',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '7',
-          branch_id: '1',
-          table_number: '7',
-          status: 'available',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '8',
-          branch_id: '1',
-          table_number: '8',
-          status: 'reserved',
-          created_at: new Date().toISOString()
+  const loadCompanies = async () => {
+    try {
+      const response = await apiService.getCompanies();
+      if (response.success && response.data) {
+        setCompanies(response.data);
+        // Auto-select first company if only one exists
+        if (response.data.length === 1) {
+          setSelectedCompanyId(response.data[0].id);
         }
-      ];
+      }
+    } catch (err) {
+      console.error('Error loading companies:', err);
+    }
+  };
 
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setTables(mockTables);
+  const loadBranches = async (companyId: string) => {
+    try {
+      const response = await apiService.getBranchesByCompany(companyId);
+      if (response.success && response.data) {
+        setBranches(response.data);
+        // Auto-select first branch if only one exists
+        if (response.data.length === 1) {
+          setSelectedBranchId(response.data[0].id);
+        } else {
+          setSelectedBranchId('');
+          setTables([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading branches:', err);
+      setBranches([]);
+    }
+  };
+
+  const loadTables = async (branchId: string) => {
+    if (!branchId) {
+      setTables([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await apiService.getTablesByBranch(branchId);
+      if (response.success && response.data) {
+        setTables(response.data);
+      }
+    } catch (err) {
+      console.error('Error loading tables:', err);
+      setError('Failed to load tables');
+      setTables([]);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    loadMockData();
+  useEffect(() => {
+    loadCompanies();
   }, []);
+
+  useEffect(() => {
+    if (selectedCompanyId) {
+      loadBranches(selectedCompanyId);
+    } else {
+      setBranches([]);
+      setSelectedBranchId('');
+      setTables([]);
+    }
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    if (selectedBranchId) {
+      loadTables(selectedBranchId);
+    } else {
+      setTables([]);
+      setIsLoading(false);
+    }
+  }, [selectedBranchId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,21 +125,66 @@ const TablesPage: React.FC = () => {
     }
   };
 
-  const updateTableStatus = (tableId: string, newStatus: string) => {
-    setTables(tables.map(table => 
-      table.id === tableId ? { ...table, status: newStatus as any } : table
-    ));
+  const updateTableStatus = async (tableId: string, newStatus: string) => {
+    try {
+      await apiService.updateTableStatus(tableId, newStatus);
+      setTables(tables.map(table => 
+        table.id === tableId ? { ...table, status: newStatus as any } : table
+      ));
+    } catch (err) {
+      console.error('Error updating table status:', err);
+      alert('Failed to update table status');
+    }
   };
 
-  const deleteTable = (tableId: string) => {
+  const deleteTable = async (tableId: string) => {
     if (window.confirm('Are you sure you want to delete this table?')) {
-      setTables(tables.filter(table => table.id !== tableId));
+      try {
+        await apiService.deleteTable(tableId);
+        setTables(tables.filter(table => table.id !== tableId));
+      } catch (err) {
+        console.error('Error deleting table:', err);
+        alert('Failed to delete table');
+      }
     }
   };
 
   const editTable = (table: BranchTable) => {
     setSelectedTable(table);
     setShowEditModal(true);
+  };
+
+  const handleAddTable = async () => {
+    if (!newTableNumber.trim()) {
+      alert('Please enter a table number');
+      return;
+    }
+
+    if (!selectedBranchId) {
+      alert('Please select a branch first');
+      return;
+    }
+
+    try {
+      const tableData = {
+        table_number: newTableNumber,
+        seats: parseInt(newTableSeats) || 4,
+        status: newTableStatus as 'available' | 'occupied' | 'reserved',
+        branch_id: selectedBranchId
+      };
+
+      const response = await apiService.createTable(tableData);
+      if (response.success && response.data) {
+        setTables(prev => [...prev, response.data!]);
+        setShowAddModal(false);
+        setNewTableNumber('');
+        setNewTableSeats('4');
+        setNewTableStatus('available');
+      }
+    } catch (err) {
+      console.error('Error creating table:', err);
+      alert('Failed to create table');
+    }
   };
 
   const statusCounts = {
@@ -133,8 +195,29 @@ const TablesPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tables...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Users className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Tables</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => loadTables(selectedBranchId)} 
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -149,14 +232,84 @@ const TablesPage: React.FC = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          disabled={!selectedBranchId}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <Plus className="w-5 h-5 mr-2" />
           Add Table
         </button>
       </div>
 
-      {/* Statistics */}
+      {/* Company and Branch Selection */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Company
+            </label>
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Choose a company...</option>
+              {companies.map(company => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Branch
+            </label>
+            <select
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              disabled={!selectedCompanyId || branches.length === 0}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Choose a branch...</option>
+              {branches.map(branch => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {!selectedCompanyId && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Please select a company to view its branches and tables.
+            </p>
+          </div>
+        )}
+
+        {selectedCompanyId && branches.length === 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 text-sm">
+              No branches found for this company. Create a branch first to manage tables.
+            </p>
+          </div>
+        )}
+
+        {selectedCompanyId && !selectedBranchId && branches.length > 0 && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Please select a branch to view its tables.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Tables Display */}
+      {selectedBranchId && (
+        <>
+          {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-lg shadow-sm border p-4">
           <div className="flex items-center justify-between">
@@ -300,6 +453,22 @@ const TablesPage: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Enter table number"
+                  value={newTableNumber}
+                  onChange={(e) => setNewTableNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Number of Seats
+                </label>
+                <input
+                  type="number"
+                  placeholder="4"
+                  value={newTableSeats}
+                  onChange={(e) => setNewTableSeats(e.target.value)}
+                  min="1"
+                  max="20"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -307,7 +476,11 @@ const TablesPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Initial Status
                 </label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <select 
+                  value={newTableStatus}
+                  onChange={(e) => setNewTableStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
                   <option value="available">Available</option>
                   <option value="occupied">Occupied</option>
                   <option value="reserved">Reserved</option>
@@ -322,7 +495,7 @@ const TablesPage: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={handleAddTable}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Add Table
@@ -378,6 +551,8 @@ const TablesPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -12,6 +12,7 @@ const tableRoutes = require('./tableRoutes');
 const orderRoutes = require('./orderRoutes');
 const paymentRoutes = require('./paymentRoutes');
 const reportRoutes = require('./reportRoutes');
+const staffRoutes = require('./staffRoutes');
 
 // Mount routes
 router.use('/auth', authRoutes);
@@ -24,5 +25,6 @@ router.use('/tables', tableRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/reports', reportRoutes);
+router.use('/staff', staffRoutes);
 
 module.exports = router;

@@ -1,83 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, DollarSign, CreditCard, Smartphone, Building, RefreshCw, Download } from 'lucide-react';
+import { apiService } from '../services/api';
 import type { Payment } from '../types';
 
 const PaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [dateRange, setDateRange] = useState<string>('today');
 
-  // Mock data for now
-  useEffect(() => {
-    const loadMockData = async () => {
-      setIsLoading(true);
-
-      const mockPayments: Payment[] = [
-        {
-          id: '1',
-          order_id: '1',
-          amount: 45.97,
-          method: 'card',
-          status: 'completed',
-          payment_date: new Date().toISOString(),
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          order_id: '2',
-          amount: 27.97,
-          method: 'cash',
-          status: 'completed',
-          payment_date: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          order_id: '3',
-          amount: 19.98,
-          method: 'digital_wallet',
-          status: 'completed',
-          payment_date: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '4',
-          order_id: '4',
-          amount: 32.96,
-          method: 'card',
-          status: 'pending',
-          payment_date: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString()
-        },
-        {
-          id: '5',
-          order_id: '5',
-          amount: 67.45,
-          method: 'bank_transfer',
-          status: 'completed',
-          payment_date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '6',
-          order_id: '6',
-          amount: 15.50,
-          method: 'cash',
-          status: 'failed',
-          payment_date: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-        }
-      ];
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setPayments(mockPayments);
+  const loadPayments = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const params: any = {};
+      if (methodFilter) params.method = methodFilter;
+      
+      const response = await apiService.getPayments(params);
+      if (response.success && response.data) {
+        setPayments(response.data);
+      }
+    } catch (err) {
+      console.error('Error loading payments:', err);
+      setError('Failed to load payments');
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    loadMockData();
-  }, []);
+  useEffect(() => {
+    loadPayments();
+  }, [methodFilter, dateRange]);
 
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = payment.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -146,8 +102,29 @@ const PaymentsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading payments...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <CreditCard className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Payments</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadPayments} 
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -308,7 +285,7 @@ const PaymentsPage: React.FC = () => {
                     #{payment.order_id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                    ${payment.amount.toFixed(2)}
+                    ${Number(payment.amount || 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-medium ${getMethodColor(payment.method)}`}>
@@ -317,8 +294,8 @@ const PaymentsPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(payment.status)}`}>
-                      {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(payment.status || 'completed')}`}>
+                      {(payment.status || 'completed').charAt(0).toUpperCase() + (payment.status || 'completed').slice(1)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

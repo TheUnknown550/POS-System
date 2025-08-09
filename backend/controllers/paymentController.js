@@ -6,6 +6,18 @@ class PaymentController {
   static async getAllPayments(req, res) {
     try {
       const { order_id, method, date_from, date_to, limit = 50, offset = 0 } = req.query;
+      const userCompanyId = req.user.companyId;
+
+      // If user doesn't have a company, return empty results
+      if (!userCompanyId) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No company associated with user'
+        });
+      }
+
       let whereClause = {};
 
       if (order_id) whereClause.order_id = order_id;
@@ -24,7 +36,11 @@ class PaymentController {
             model: Order,
             as: 'order',
             include: [
-              { model: Branch, as: 'branch' },
+              { 
+                model: Branch, 
+                as: 'branch',
+                where: { company_id: userCompanyId }
+              },
               { model: BranchTable, as: 'table' }
             ]
           }

@@ -4,7 +4,21 @@ class CompanyController {
   // GET /api/companies
   static async getAllCompanies(req, res) {
     try {
+      const userId = req.user.id;
+      const userCompanyId = req.user.companyId;
+
+      // If user doesn't have a company, return empty results
+      if (!userCompanyId) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No company associated with user'
+        });
+      }
+
       const companies = await Company.findAll({
+        where: { id: userCompanyId },
         include: [
           {
             model: Branch,
@@ -83,7 +97,8 @@ class CompanyController {
   // POST /api/companies
   static async createCompany(req, res) {
     try {
-      const { name } = req.body;
+      const { name, address, phone, email } = req.body;
+      const userId = req.user.id;
 
       if (!name) {
         return res.status(400).json({
@@ -92,12 +107,37 @@ class CompanyController {
         });
       }
 
-      const company = await Company.create({ name });
+      // Check if user already has a company
+      const existingAdmin = await CompanyAdmin.findOne({
+        where: { user_id: userId }
+      });
+
+      if (existingAdmin) {
+        return res.status(400).json({
+          success: false,
+          error: 'User already belongs to a company'
+        });
+      }
+
+      const company = await Company.create({ 
+        name,
+        address: address || '',
+        phone: phone || '',
+        email: email || req.user.email
+      });
+
+      // Make the user a company admin
+      await CompanyAdmin.create({
+        user_id: userId,
+        company_id: company.id,
+        role: 'admin' // Set default role as admin for company creator
+      });
 
       res.status(201).json({
         success: true,
         data: company,
-        message: 'Company created successfully'
+        message: 'Company created successfully. Please log out and log back in to access company features.',
+        requiresReauth: true
       });
     } catch (error) {
       console.error('Error creating company:', error);

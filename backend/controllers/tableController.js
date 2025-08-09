@@ -5,6 +5,18 @@ class TableController {
   static async getAllTables(req, res) {
     try {
       const { branch_id, status } = req.query;
+      const userCompanyId = req.user.companyId;
+
+      // If user doesn't have a company, return empty results
+      if (!userCompanyId) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No company associated with user'
+        });
+      }
+
       let whereClause = {};
 
       if (branch_id) {
@@ -20,7 +32,8 @@ class TableController {
         include: [
           {
             model: Branch,
-            as: 'branch'
+            as: 'branch',
+            where: { company_id: userCompanyId }
           }
         ],
         order: [['table_number', 'ASC']]

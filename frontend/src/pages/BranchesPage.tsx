@@ -1,106 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, MapPin, Phone, Mail, Users, Edit, Trash2, Building, Clock } from 'lucide-react';
+import { apiService } from '../services/api';
 import type { Branch, Company } from '../types';
 
 const BranchesPage: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
 
-  // Mock data for now
-  useEffect(() => {
-    const loadMockData = async () => {
-      setIsLoading(true);
+  const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const [branchesResponse, companiesResponse] = await Promise.all([
+        apiService.getBranches(),
+        apiService.getCompanies()
+      ]);
 
-      const mockCompanies: Company[] = [
-        {
-          id: '1',
-          name: 'Delicious Bites Restaurant Group',
-          description: 'Premium dining experience',
-          phone: '+1 (555) 123-4567',
-          email: 'info@deliciousbites.com',
-          address: '123 Main Street, Downtown',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Quick Serve Solutions',
-          description: 'Fast casual dining chain',
-          phone: '+1 (555) 987-6543',
-          email: 'contact@quickserve.com',
-          address: '456 Business Ave, Commercial District',
-          created_at: new Date().toISOString()
-        }
-      ];
+      if (branchesResponse.success && branchesResponse.data) {
+        setBranches(branchesResponse.data);
+      }
 
-      const mockBranches: Branch[] = [
-        {
-          id: '1',
-          company_id: '1',
-          name: 'Downtown Main Branch',
-          address: '123 Main Street, Downtown, NY 10001',
-          phone: '+1 (555) 123-4567',
-          email: 'downtown@deliciousbites.com',
-          manager_name: 'John Smith',
-          status: 'active',
-          opening_hours: '9:00 AM - 11:00 PM',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          company_id: '1',
-          name: 'Westside Location',
-          address: '789 West Ave, Westside, NY 10002',
-          phone: '+1 (555) 234-5678',
-          email: 'westside@deliciousbites.com',
-          manager_name: 'Sarah Johnson',
-          status: 'active',
-          opening_hours: '10:00 AM - 10:00 PM',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '3',
-          company_id: '2',
-          name: 'Express Mall Location',
-          address: '321 Mall Drive, Shopping Center, NY 10003',
-          phone: '+1 (555) 345-6789',
-          email: 'mall@quickserve.com',
-          manager_name: 'Mike Chen',
-          status: 'active',
-          opening_hours: '11:00 AM - 9:00 PM',
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '4',
-          company_id: '2',
-          name: 'Airport Terminal Branch',
-          address: '100 Airport Blvd, Terminal 2, NY 10004',
-          phone: '+1 (555) 456-7890',
-          email: 'airport@quickserve.com',
-          manager_name: 'Lisa Rodriguez',
-          status: 'inactive',
-          opening_hours: '6:00 AM - 12:00 AM',
-          created_at: new Date().toISOString()
-        }
-      ];
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setCompanies(mockCompanies);
-      setBranches(mockBranches);
+      if (companiesResponse.success && companiesResponse.data) {
+        setCompanies(companiesResponse.data);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load branches and companies');
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    loadMockData();
+  useEffect(() => {
+    loadData();
   }, []);
 
   const filteredBranches = branches.filter(branch => {
     const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         branch.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         branch.manager_name.toLowerCase().includes(searchTerm.toLowerCase());
+                         (branch.address?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+                         (branch.manager_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const matchesCompany = companyFilter === '' || branch.company_id === companyFilter;
     return matchesSearch && matchesCompany;
   });
@@ -110,7 +55,7 @@ const BranchesPage: React.FC = () => {
     return company ? company.name : 'Unknown Company';
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-red-100 text-red-800';
@@ -129,42 +74,66 @@ const BranchesPage: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDeleteBranch = (branchId: string) => {
+  const handleDeleteBranch = async (branchId: string) => {
     if (window.confirm('Are you sure you want to delete this branch?')) {
-      setBranches(prev => prev.filter(b => b.id !== branchId));
+      try {
+        await apiService.deleteBranch(branchId);
+        setBranches(prev => prev.filter(b => b.id !== branchId));
+      } catch (err) {
+        console.error('Error deleting branch:', err);
+        alert('Failed to delete branch');
+      }
     }
   };
 
-  const handleSaveBranch = (branchData: Partial<Branch>) => {
-    if (editingBranch) {
-      // Update existing branch
-      setBranches(prev => prev.map(b => 
-        b.id === editingBranch.id ? { ...b, ...branchData } : b
-      ));
-    } else {
-      // Add new branch
-      const newBranch: Branch = {
-        id: Date.now().toString(),
-        company_id: branchData.company_id || '',
-        name: branchData.name || '',
-        address: branchData.address || '',
-        phone: branchData.phone || '',
-        email: branchData.email || '',
-        manager_name: branchData.manager_name || '',
-        status: branchData.status || 'active',
-        opening_hours: branchData.opening_hours || '',
-        created_at: new Date().toISOString()
-      };
-      setBranches(prev => [...prev, newBranch]);
+  const handleSaveBranch = async (branchData: Partial<Branch>) => {
+    try {
+      if (editingBranch) {
+        // Update existing branch
+        await apiService.updateBranch(editingBranch.id, branchData);
+        setBranches(prev => prev.map(b => 
+          b.id === editingBranch.id ? { ...b, ...branchData } : b
+        ));
+      } else {
+        // Add new branch
+        const response = await apiService.createBranch(branchData);
+        if (response.success && response.data) {
+          setBranches(prev => [...prev, response.data!]);
+        }
+      }
+      setShowAddModal(false);
+      setEditingBranch(null);
+    } catch (err) {
+      console.error('Error saving branch:', err);
+      alert('Failed to save branch');
     }
-    setShowAddModal(false);
-    setEditingBranch(null);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading branches...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Building className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Branches</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadData} 
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -184,6 +153,55 @@ const BranchesPage: React.FC = () => {
           <Plus className="w-5 h-5 mr-2" />
           Add Branch
         </button>
+      </div>
+
+      {/* Company Selection */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Filter by Company
+            </label>
+            <select
+              value={companyFilter}
+              onChange={(e) => setCompanyFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All Companies</option>
+              {companies.map(company => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Search Branches
+            </label>
+            <div className="relative">
+              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by name, address, or manager..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        </div>
+
+        {companyFilter && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Showing branches for: <strong>
+                {companies.find(c => c.id === companyFilter)?.name || 'Unknown Company'}
+              </strong>
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Statistics */}
@@ -283,7 +301,7 @@ const BranchesPage: React.FC = () => {
                   <p className="text-sm text-gray-600">{getCompanyName(branch.company_id)}</p>
                 </div>
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(branch.status)}`}>
-                  {branch.status.charAt(0).toUpperCase() + branch.status.slice(1)}
+                  {branch.status ? branch.status.charAt(0).toUpperCase() + branch.status.slice(1) : 'Unknown'}
                 </span>
               </div>
 
@@ -499,7 +517,7 @@ const BranchModal: React.FC<BranchModalProps> = ({ branch, companies, onSave, on
                 </label>
                 <select
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' | 'maintenance' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="active">Active</option>

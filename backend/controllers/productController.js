@@ -5,7 +5,30 @@ class ProductController {
   static async getAllProducts(req, res) {
     try {
       const { category_id, search } = req.query;
-      let whereClause = {};
+      const userCompanyId = req.user.companyId;
+
+      // For now, return empty products for all authenticated users
+      // since products aren't company-specific in the current schema
+      // TODO: Add company_id to products table to make products company-specific
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+        message: 'Products are not yet company-specific. Schema needs updating to add company_id to products table.'
+      });
+
+      // This code below would be used once products become company-specific:
+      /*
+      if (!userCompanyId) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No company associated with user'
+        });
+      }
+
+      let whereClause = { company_id: userCompanyId };
 
       if (category_id) {
         whereClause.category_id = category_id;
@@ -33,6 +56,7 @@ class ProductController {
         data: products,
         count: products.length
       });
+      */
     } catch (error) {
       console.error('Error fetching products:', error);
       res.status(500).json({

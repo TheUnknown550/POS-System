@@ -83,7 +83,8 @@ router.post('/register', async (req, res) => {
       // Make user a company admin
       await CompanyAdmin.create({
         user_id: user.id,
-        company_id: company.id
+        company_id: company.id,
+        role: 'admin' // Set default role as admin for company creator
       });
     }
 

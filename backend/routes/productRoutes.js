@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const ProductController = require('../controllers/productController');
 
-// Product routes
-router.get('/', ProductController.getAllProducts);
-router.get('/:id', ProductController.getProductById);
-router.post('/', ProductController.createProduct);
-router.put('/:id', ProductController.updateProduct);
-router.delete('/:id', ProductController.deleteProduct);
+// Import authentication middleware
+const { authenticateToken } = require('./authRoutes');
+
+// Product routes (protected)
+router.get('/', authenticateToken, ProductController.getAllProducts);
+router.get('/:id', authenticateToken, ProductController.getProductById);
+router.post('/', authenticateToken, ProductController.createProduct);
+router.put('/:id', authenticateToken, ProductController.updateProduct);
+router.delete('/:id', authenticateToken, ProductController.deleteProduct);
 
 module.exports = router;

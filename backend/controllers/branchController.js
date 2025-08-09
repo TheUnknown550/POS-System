@@ -4,7 +4,20 @@ class BranchController {
   // GET /api/branches
   static async getAllBranches(req, res) {
     try {
+      const userCompanyId = req.user.companyId;
+
+      // If user doesn't have a company, return empty results
+      if (!userCompanyId) {
+        return res.json({
+          success: true,
+          data: [],
+          count: 0,
+          message: 'No company associated with user'
+        });
+      }
+
       const branches = await Branch.findAll({
+        where: { company_id: userCompanyId },
         include: [
           {
             model: Company,

@@ -4,6 +4,9 @@ const PaymentController = require('../controllers/paymentController');
 const { Order, Payment, Product, User, Company, Branch } = require('../models');
 const { Op } = require('sequelize');
 
+// Import authentication middleware
+const { authenticateToken } = require('./authRoutes');
+
 // Base reports route - Get available reports
 router.get('/', (req, res) => {
   res.json({
@@ -20,13 +23,14 @@ router.get('/', (req, res) => {
   });
 });
 
-// Payment reports
-router.get('/payments', PaymentController.getPaymentReport);
+// Payment reports (protected)
+router.get('/payments', authenticateToken, PaymentController.getPaymentReport);
 
-// Sales reports
-router.get('/sales', async (req, res) => {
+// Sales reports (protected)
+router.get('/sales', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate, branchId } = req.query;
+    const userCompanyId = req.user.companyId;
     
     let whereClause = {};
     if (startDate && endDate) {
@@ -41,7 +45,11 @@ router.get('/sales', async (req, res) => {
     const orders = await Order.findAll({
       where: whereClause,
       include: [
-        { model: Branch, as: 'branch' },
+        { 
+          model: Branch, 
+          as: 'branch',
+          where: userCompanyId ? { company_id: userCompanyId } : { company_id: null }
+        },
         { model: Payment, as: 'payments' }
       ],
       order: [['order_date', 'DESC']]
@@ -80,7 +88,7 @@ router.get('/sales', async (req, res) => {
 });
 
 // Daily reports
-router.get('/daily', async (req, res) => {
+router.get('/daily', authenticateToken, async (req, res) => {
   try {
     const { date = new Date().toISOString().split('T')[0] } = req.query;
     
@@ -137,7 +145,7 @@ router.get('/daily', async (req, res) => {
 });
 
 // Monthly reports
-router.get('/monthly', async (req, res) => {
+router.get('/monthly', authenticateToken, async (req, res) => {
   try {
     const { year = new Date().getFullYear(), month = new Date().getMonth() + 1 } = req.query;
     
@@ -195,7 +203,7 @@ router.get('/monthly', async (req, res) => {
 });
 
 // Product performance reports
-router.get('/products', async (req, res) => {
+router.get('/products', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -260,25 +268,38 @@ router.get('/products', async (req, res) => {
 });
 
 // Summary dashboard report
-router.get('/summary', async (req, res) => {
+router.get('/summary', authenticateToken, async (req, res) => {
   try {
+    const userCompanyId = req.user.companyId;
     const today = new Date();
     const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
+    // Build base where clause for company filtering
+    const companyFilter = userCompanyId ? {
+      include: [{
+        model: Branch,
+        as: 'branch',
+        where: { company_id: userCompanyId }
+      }]
+    } : {};
+
     // Today's stats
     const todayOrders = await Order.count({
-      where: { order_date: { [Op.gte]: startOfToday } }
+      where: { order_date: { [Op.gte]: startOfToday } },
+      ...companyFilter
     });
 
     const todaySales = await Order.sum('total_amount', {
-      where: { order_date: { [Op.gte]: startOfToday } }
+      where: { order_date: { [Op.gte]: startOfToday } },
+      ...companyFilter
     }) || 0;
 
     // This week's stats
     const weekOrders = await Order.count({
-      where: { order_date: { [Op.gte]: startOfWeek } }
+      where: { order_date: { [Op.gte]: startOfWeek } },
+      ...companyFilter
     });
 
     const weekSales = await Order.sum('total_amount', {

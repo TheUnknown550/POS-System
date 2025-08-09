@@ -434,6 +434,55 @@ class ApiService {
     const response = await this.api.get('/health');
     return response.data;
   }
+
+  // Staff Methods
+  async getStaff(params?: { 
+    branch_id?: string; 
+    role?: string; 
+    status?: string;
+  }): Promise<ApiResponse<any[]>> {
+    const response = await this.api.get('/staff', { params });
+    return response.data;
+  }
+
+  async getStaffById(id: string): Promise<ApiResponse<any>> {
+    const response = await this.api.get(`/staff/${id}`);
+    return response.data;
+  }
+
+  async createStaff(staffData: {
+    branch_id: string;
+    user_id?: string;
+    name: string;
+    role: string;
+    email: string;
+    phone?: string;
+    hire_date?: string;
+    salary?: number;
+    status?: string;
+    schedule?: string;
+  }): Promise<ApiResponse<any>> {
+    const response = await this.api.post('/staff', staffData);
+    return response.data;
+  }
+
+  async updateStaff(id: string, staffData: Partial<any>): Promise<ApiResponse<any>> {
+    const response = await this.api.put(`/staff/${id}`, staffData);
+    return response.data;
+  }
+
+  async deleteStaff(id: string): Promise<ApiResponse<void>> {
+    const response = await this.api.delete(`/staff/${id}`);
+    return response.data;
+  }
+
+  async getStaffByBranch(branchId: string, params?: {
+    role?: string;
+    status?: string;
+  }): Promise<ApiResponse<any[]>> {
+    const response = await this.api.get(`/branches/${branchId}/staff`, { params });
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, DollarSign, ShoppingCart, Users, Clock, Download, RefreshCw, BarChart3 } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface SalesData {
   date: string;
@@ -18,44 +19,88 @@ interface TopProduct {
 
 const ReportsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<string>('week');
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [summaryData, setSummaryData] = useState<any>(null);
 
-  // Mock data for now
-  useEffect(() => {
-    const loadMockData = async () => {
-      setIsLoading(true);
+  const loadReportsData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      
+      switch (dateRange) {
+        case 'week':
+          startDate.setDate(endDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(endDate.getMonth() - 1);
+          break;
+        case 'year':
+          startDate.setFullYear(endDate.getFullYear() - 1);
+          break;
+        default:
+          startDate.setDate(endDate.getDate() - 7);
+      }
 
-      const mockSalesData: SalesData[] = [
-        { date: '2024-01-01', revenue: 1250.50, orders: 45, customers: 38 },
-        { date: '2024-01-02', revenue: 1180.25, orders: 42, customers: 35 },
-        { date: '2024-01-03', revenue: 1450.75, orders: 52, customers: 44 },
-        { date: '2024-01-04', revenue: 1320.00, orders: 48, customers: 40 },
-        { date: '2024-01-05', revenue: 1680.90, orders: 58, customers: 49 },
-        { date: '2024-01-06', revenue: 1890.45, orders: 67, customers: 55 },
-        { date: '2024-01-07', revenue: 1756.30, orders: 62, customers: 51 }
-      ];
+      const [summaryResponse, salesResponse, productResponse] = await Promise.all([
+        apiService.getSummaryReport(),
+        apiService.getSalesReport({
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+        }),
+        apiService.getProductReport({
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+        })
+      ]);
 
-      const mockTopProducts: TopProduct[] = [
-        { id: '1', name: 'Margherita Pizza', category: 'Pizza', sales: 156, revenue: 2340.00 },
-        { id: '2', name: 'Caesar Salad', category: 'Salads', sales: 89, revenue: 1246.00 },
-        { id: '3', name: 'Grilled Chicken', category: 'Mains', sales: 134, revenue: 2680.00 },
-        { id: '4', name: 'Chocolate Cake', category: 'Desserts', sales: 67, revenue: 469.00 },
-        { id: '5', name: 'House Wine', category: 'Beverages', sales: 203, revenue: 1827.00 }
-      ];
+      if (summaryResponse.success) {
+        setSummaryData(summaryResponse.data);
+      }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setSalesData(mockSalesData);
-      setTopProducts(mockTopProducts);
+      if (salesResponse.success && salesResponse.data) {
+        // Transform sales data to match the expected format
+        const transformedSalesData: SalesData[] = salesResponse.data.map((item: any) => ({
+          date: item.date,
+          revenue: parseFloat(item.total) || 0,
+          orders: 1, // Each item represents an order
+          customers: 1 // Assuming one customer per order for now
+        }));
+        setSalesData(transformedSalesData);
+      }
+
+      if (productResponse.success && productResponse.data) {
+        // Transform product data to match the expected format
+        const transformedProducts: TopProduct[] = productResponse.data.map((item: any) => ({
+          id: Math.random().toString(),
+          name: item.name,
+          category: 'General', // Category not provided in product report
+          sales: item.totalQuantity,
+          revenue: item.totalRevenue
+        }));
+        setTopProducts(transformedProducts);
+      }
+    } catch (err) {
+      console.error('Error loading reports data:', err);
+      setError('Failed to load reports data');
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    loadMockData();
+  useEffect(() => {
+    loadReportsData();
   }, [dateRange]);
 
-  const totalRevenue = salesData.reduce((sum, day) => sum + day.revenue, 0);
-  const totalOrders = salesData.reduce((sum, day) => sum + day.orders, 0);
+  // Use summary data if available, otherwise calculate from sales data
+  const totalRevenue = summaryData ? parseFloat(summaryData.totals?.sales || '0') : salesData.reduce((sum, day) => sum + day.revenue, 0);
+  const totalOrders = summaryData ? summaryData.totals?.orders || 0 : salesData.reduce((sum, day) => sum + day.orders, 0);
   const totalCustomers = salesData.reduce((sum, day) => sum + day.customers, 0);
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
@@ -78,8 +123,29 @@ const ReportsPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <BarChart3 className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Reports</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadReportsData} 
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

@@ -1,77 +1,99 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Clock, CheckCircle, X, Eye, DollarSign } from 'lucide-react';
-import type { Order } from '../types';
+import { apiService } from '../services/api';
+import type { Order, Company, Branch } from '../types';
 
 const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
 
-  // Mock data for now
-  useEffect(() => {
-    const loadMockData = async () => {
-      setIsLoading(true);
-
-      const mockOrders: Order[] = [
-        {
-          id: '1',
-          branch_id: '1',
-          table_id: '1',
-          order_date: new Date().toISOString(),
-          status: 'preparing',
-          total_amount: 45.97,
-          items: [
-            { id: '1', order_id: '1', product_id: '1', quantity: 2, unit_price: 12.99 },
-            { id: '2', order_id: '1', product_id: '3', quantity: 3, unit_price: 2.99 },
-            { id: '3', order_id: '1', product_id: '4', quantity: 2, unit_price: 4.99 }
-          ]
-        },
-        {
-          id: '2',
-          branch_id: '1',
-          table_id: '2',
-          order_date: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          status: 'ready',
-          total_amount: 27.97,
-          items: [
-            { id: '4', order_id: '2', product_id: '2', quantity: 1, unit_price: 14.99 },
-            { id: '5', order_id: '2', product_id: '1', quantity: 1, unit_price: 12.99 }
-          ]
-        },
-        {
-          id: '3',
-          branch_id: '1',
-          order_date: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-          status: 'paid',
-          total_amount: 19.98,
-          items: [
-            { id: '6', order_id: '3', product_id: '1', quantity: 1, unit_price: 12.99 },
-            { id: '7', order_id: '3', product_id: '5', quantity: 1, unit_price: 6.99 }
-          ]
-        },
-        {
-          id: '4',
-          branch_id: '1',
-          table_id: '3',
-          order_date: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-          status: 'pending',
-          total_amount: 32.96,
-          items: [
-            { id: '8', order_id: '4', product_id: '2', quantity: 2, unit_price: 14.99 },
-            { id: '9', order_id: '4', product_id: '3', quantity: 1, unit_price: 2.99 }
-          ]
+  const loadCompanies = async () => {
+    try {
+      const response = await apiService.getCompanies();
+      if (response.success && response.data) {
+        setCompanies(response.data);
+        if (response.data.length === 1) {
+          setSelectedCompanyId(response.data[0].id);
         }
-      ];
+      }
+    } catch (err) {
+      console.error('Error loading companies:', err);
+    }
+  };
 
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setOrders(mockOrders);
+  const loadBranches = async (companyId: string) => {
+    try {
+      const response = await apiService.getBranchesByCompany(companyId);
+      if (response.success && response.data) {
+        setBranches(response.data);
+        if (response.data.length === 1) {
+          setSelectedBranchId(response.data[0].id);
+        } else {
+          setSelectedBranchId('');
+          setOrders([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading branches:', err);
+      setBranches([]);
+    }
+  };
+
+  const loadOrders = async (branchId: string) => {
+    if (!branchId) {
+      setOrders([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const params: any = { branch_id: branchId };
+      if (statusFilter) params.status = statusFilter;
+      
+      const response = await apiService.getOrders(params);
+      if (response.success && response.data) {
+        setOrders(response.data);
+      }
+    } catch (err) {
+      console.error('Error loading orders:', err);
+      setError('Failed to load orders');
+      setOrders([]);
+    } finally {
       setIsLoading(false);
-    };
+    }
+  };
 
-    loadMockData();
+  useEffect(() => {
+    loadCompanies();
   }, []);
+
+  useEffect(() => {
+    if (selectedCompanyId) {
+      loadBranches(selectedCompanyId);
+    } else {
+      setBranches([]);
+      setSelectedBranchId('');
+      setOrders([]);
+    }
+  }, [selectedCompanyId]);
+
+  useEffect(() => {
+    if (selectedBranchId) {
+      loadOrders(selectedBranchId);
+    } else {
+      setOrders([]);
+    }
+  }, [selectedBranchId, statusFilter]);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -104,10 +126,16 @@ const OrdersPage: React.FC = () => {
     }
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus as any } : order
-    ));
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await apiService.updateOrderStatus(orderId, newStatus);
+      setOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, status: newStatus as any } : order
+      ));
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      alert('Failed to update order status');
+    }
   };
 
   const formatTime = (dateString: string) => {
@@ -128,8 +156,29 @@ const OrdersPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <DollarSign className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 text-lg font-semibold mb-2">Error Loading Orders</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => loadOrders(selectedBranchId)} 
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -144,14 +193,84 @@ const OrdersPage: React.FC = () => {
         </div>
         <button
           onClick={() => setShowNewOrderModal(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          disabled={!selectedBranchId}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <Plus className="w-5 h-5 mr-2" />
           New Order
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Company and Branch Selection */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Company
+            </label>
+            <select
+              value={selectedCompanyId}
+              onChange={(e) => setSelectedCompanyId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Choose a company...</option>
+              {companies.map(company => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Branch
+            </label>
+            <select
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              disabled={!selectedCompanyId || branches.length === 0}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Choose a branch...</option>
+              {branches.map(branch => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {!selectedCompanyId && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Please select a company to view its branches and orders.
+            </p>
+          </div>
+        )}
+
+        {selectedCompanyId && branches.length === 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 text-sm">
+              No branches found for this company. Create a branch first to manage orders.
+            </p>
+          </div>
+        )}
+
+        {selectedCompanyId && !selectedBranchId && branches.length > 0 && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-blue-800 text-sm">
+              Please select a branch to view its orders.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Orders Display */}
+      {selectedBranchId && (
+        <>
+          {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
@@ -240,7 +359,7 @@ const OrdersPage: React.FC = () => {
 
               <div className="flex justify-between items-center mb-4">
                 <span className="font-semibold text-lg text-green-600">
-                  ${order.total_amount.toFixed(2)}
+                  ${Number(order.total_amount || 0).toFixed(2)}
                 </span>
                 <span className="text-sm text-gray-500">
                   {getTimeAgo(order.order_date)}
@@ -326,6 +445,8 @@ const OrdersPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
