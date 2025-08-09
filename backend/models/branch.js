@@ -36,6 +36,18 @@ module.exports = (sequelize, DataTypes) => {
         otherKey: 'user_id',
         as: 'users'
       });
+
+      // Branch has many product categories
+      Branch.hasMany(models.ProductCategory, {
+        foreignKey: 'branch_id',
+        as: 'categories'
+      });
+
+      // Branch has many products
+      Branch.hasMany(models.Product, {
+        foreignKey: 'branch_id',
+        as: 'products'
+      });
     }
   }
   Branch.init({

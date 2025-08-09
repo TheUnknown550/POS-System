@@ -83,13 +83,24 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       // Always load all companies first
       await refreshCompanies();
       
-      // If user has assigned companies, try to select the first one
-      if (user?.companies && user.companies.length > 0) {
+      // Try to restore from localStorage first
+      const savedCompany = localStorage.getItem('selectedCompany');
+      const savedBranch = localStorage.getItem('selectedBranch');
+      
+      if (savedCompany) {
+        setSelectedCompanyState(savedCompany);
+        // Branch will be loaded automatically by the useEffect
+        if (savedBranch) {
+          // Set branch after companies/branches are loaded
+          setTimeout(() => {
+            setSelectedBranchState(savedBranch);
+          }, 100);
+        }
+      } else if (user?.companies && user.companies.length > 0) {
+        // If no saved selection, try to select the first user company
         const userCompany = user.companies[0];
         console.log('User has companies:', user.companies);
         console.log('Setting selected company to:', userCompany.id);
-        
-        // Check if the user's company exists in the loaded companies
         setSelectedCompanyState(userCompany.id);
       } else {
         console.log('No user companies found, user object:', user);
@@ -132,8 +143,14 @@ export const CompanyProvider: React.FC<CompanyProviderProps> = ({ children }) =>
       if (response.success && response.data) {
         setBranches(response.data);
         
-        // Reset branch selection when company changes
-        setSelectedBranchState('');
+        // If there's a saved branch, try to restore it
+        const savedBranch = localStorage.getItem('selectedBranch');
+        if (savedBranch && response.data.find(b => b.id === savedBranch)) {
+          setSelectedBranchState(savedBranch);
+        } else {
+          // Reset branch selection when company changes and no valid saved branch
+          setSelectedBranchState('');
+        }
       }
     } catch (error) {
       console.error('Error loading branches:', error);

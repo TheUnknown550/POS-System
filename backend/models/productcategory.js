@@ -10,6 +10,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'category_id',
         as: 'products'
       });
+      
+      // ProductCategory belongs to a branch
+      ProductCategory.belongsTo(models.Branch, {
+        foreignKey: 'branch_id',
+        as: 'branch'
+      });
     }
   }
   ProductCategory.init({
@@ -21,12 +27,18 @@ module.exports = (sequelize, DataTypes) => {
     name: {
       type: DataTypes.STRING,
       allowNull: false
+    },
+    branch_id: {
+      type: DataTypes.UUID,
+      allowNull: false
     }
   }, {
     sequelize,
     modelName: 'ProductCategory',
     tableName: 'product_categories',
-    timestamps: false
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
   });
   return ProductCategory;
 };

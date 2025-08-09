@@ -48,14 +48,24 @@ export interface BranchStaff {
   user_id?: string;
   name: string;
   role: 'manager' | 'chef' | 'waiter' | 'cashier' | 'cleaner';
-  email: string;
-  phone: string;
-  hire_date: string;
-  salary: number;
-  status: 'active' | 'inactive' | 'on_leave';
-  schedule: string;
+  phone?: string;
+  email?: string;
+  hire_date?: string;
+  salary?: number;
+  status?: 'active' | 'inactive' | 'on_leave';
+  schedule?: string;
   created_at: string;
+  branch?: Branch;
   user?: User;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  branch_id: string;
+  description?: string;
+  created_at: string;
+  products?: Product[];
   branch?: Branch;
 }
 
@@ -69,25 +79,32 @@ export interface BranchTable {
   orders?: Order[];
 }
 
-export interface ProductCategory {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  products?: Product[];
-}
-
 export interface Product {
   id: string;
   category_id: string;
+  branch_id: string;
   name: string;
   description?: string;
   price: number;
-  stock_quantity?: number;
-  is_available?: boolean;
-  sku?: string;
+  cost_price?: number;
+  discount_percentage?: number;
+  discount_price?: number;
+  image_url?: string;
+  status: 'active' | 'inactive' | 'discontinued' | 'out_of_stock';
+  is_featured: boolean;
+  tags?: string[];
+  nutritional_info?: {
+    calories?: number;
+    fat?: number;
+    protein?: number;
+    carbohydrates?: number;
+    [key: string]: any;
+  };
+  allergens?: string[];
   created_at: string;
-  category?: ProductCategory;
+  updated_at: string;
+  category?: Category;
+  branch?: Branch;
 }
 
 export interface Order {

@@ -8,6 +8,7 @@ import RegisterPage from './pages/auth/RegisterPage';
 import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
+import CategoriesPage from './pages/CategoriesPage';
 import OrdersPage from './pages/OrdersPage';
 import TablesPage from './pages/TablesPage';
 import CompaniesPage from './pages/CompaniesPage';
@@ -135,6 +136,16 @@ function App() {
                   <ProtectedRoute>
                     <Layout>
                       <ProductsPage />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/categories"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <CategoriesPage />
                     </Layout>
                   </ProtectedRoute>
                 }

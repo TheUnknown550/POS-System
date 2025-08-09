@@ -222,8 +222,8 @@ class ApiService {
   }
 
   // Product Category Methods
-  async getCategories(): Promise<ApiResponse<ProductCategory[]>> {
-    const response = await this.api.get('/categories');
+  async getCategories(params?: { branch_id?: string }): Promise<ApiResponse<ProductCategory[]>> {
+    const response = await this.api.get('/categories', { params });
     return response.data;
   }
 
@@ -243,7 +243,7 @@ class ApiService {
   }
 
   // Product Methods
-  async getProducts(params?: { category_id?: string; search?: string }): Promise<ApiResponse<Product[]>> {
+  async getProducts(params?: { category_id?: string; search?: string; branch_id?: string }): Promise<ApiResponse<Product[]>> {
     const response = await this.api.get('/products', { params });
     return response.data;
   }

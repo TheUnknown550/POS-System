@@ -213,7 +213,17 @@ POST /api/branches
 ```bash
 POST /api/categories
 {
-  "name": "Beverages"
+  "name": "Beverages",
+  "description": "Hot and cold drinks"
+}
+```
+
+### Update a Product Category
+```bash
+PUT /api/categories/:id
+{
+  "name": "Hot Beverages",
+  "description": "Coffee, tea, and other hot drinks"
 }
 ```
 
@@ -222,9 +232,32 @@ POST /api/categories
 POST /api/products
 {
   "category_id": "uuid-here",
-  "name": "Coffee",
+  "name": "Cappuccino",
+  "description": "Rich espresso with steamed milk foam",
   "price": 4.50,
-  "sku": "BEV001"
+  "cost_price": 2.00,
+  "discount_percentage": 10,
+  "image_url": "https://example.com/cappuccino.jpg",
+  "status": "active",
+  "is_featured": true,
+  "tags": ["coffee", "hot", "dairy"],
+  "allergens": ["milk"],
+  "nutritional_info": {
+    "calories": 120,
+    "fat": 4.5,
+    "protein": 6.3,
+    "carbohydrates": 11.4
+  }
+}
+```
+
+### Update a Product
+```bash
+PUT /api/products/:id
+{
+  "name": "Large Cappuccino",
+  "price": 5.50,
+  "status": "active"
 }
 ```
 
@@ -343,6 +376,69 @@ PUT /api/tables/:id/status
   }
 }
 ```
+
+## Data Structures
+
+### Product Category
+```json
+{
+  "id": "uuid",
+  "name": "Beverages",
+  "description": "Hot and cold drinks",
+  "created_at": "2024-01-15T10:30:00Z",
+  "products": [] // Array of products in this category (when populated)
+}
+```
+
+### Product
+```json
+{
+  "id": "uuid",
+  "category_id": "uuid",
+  "name": "Cappuccino",
+  "description": "Rich espresso with steamed milk foam",
+  "price": 4.50,
+  "cost_price": 2.00,
+  "discount_percentage": 10,
+  "discount_price": 4.05,
+  "image_url": "https://example.com/cappuccino.jpg",
+  "status": "active", // active, inactive, discontinued, out_of_stock
+  "is_featured": true,
+  "tags": ["coffee", "hot", "dairy"],
+  "allergens": ["milk"],
+  "nutritional_info": {
+    "calories": 120,
+    "fat": 4.5,
+    "protein": 6.3,
+    "carbohydrates": 11.4
+  },
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T14:20:00Z",
+  "category": {} // Category object (when populated)
+}
+```
+
+### Product Creation Fields
+**Required:**
+- `category_id` (UUID) - Product category
+- `name` (string) - Product name
+- `price` (decimal) - Selling price
+
+**Optional:**
+- `description` (string) - Product description
+- `cost_price` (decimal) - Cost price for profit calculations
+- `discount_percentage` (decimal, 0-100) - Discount percentage
+- `discount_price` (decimal) - Discounted price
+- `image_url` (string) - Product image URL
+- `status` (enum) - Product status: active, inactive, discontinued, out_of_stock
+- `is_featured` (boolean) - Whether product is featured
+- `tags` (array) - Product tags for categorization
+- `allergens` (array) - Allergen information
+- `nutritional_info` (object) - Optional nutritional information
+  - `calories` (number) - Calories per serving
+  - `fat` (number) - Fat content in grams
+  - `protein` (number) - Protein content in grams
+  - `carbohydrates` (number) - Carbohydrate content in grams
 
 ## Status Codes
 - `200` - Success

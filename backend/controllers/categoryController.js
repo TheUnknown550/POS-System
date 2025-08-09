@@ -4,7 +4,15 @@ class ProductCategoryController {
   // GET /api/categories
   static async getAllCategories(req, res) {
     try {
+      const { branch_id } = req.query;
+      
+      const whereClause = {};
+      if (branch_id) {
+        whereClause.branch_id = branch_id;
+      }
+
       const categories = await ProductCategory.findAll({
+        where: whereClause,
         include: [
           {
             model: Product,
@@ -66,25 +74,35 @@ class ProductCategoryController {
   // POST /api/categories
   static async createCategory(req, res) {
     try {
-      const { name } = req.body;
+      console.log('Creating category with data:', req.body);
+      const { name, branch_id } = req.body;
 
-      if (!name) {
+      if (!name || !branch_id) {
+        console.log('Missing required fields:', { name: !!name, branch_id: !!branch_id });
         return res.status(400).json({
           success: false,
-          error: 'Category name is required'
+          error: 'Category name and branch_id are required'
         });
       }
 
-      // Check if category name already exists
-      const existingCategory = await ProductCategory.findOne({ where: { name } });
+      // Check if category name already exists for this branch
+      const existingCategory = await ProductCategory.findOne({ 
+        where: { 
+          name, 
+          branch_id 
+        } 
+      });
       if (existingCategory) {
+        console.log('Category already exists:', existingCategory.id);
         return res.status(409).json({
           success: false,
-          error: 'Category name already exists'
+          error: 'Category name already exists for this branch'
         });
       }
 
-      const category = await ProductCategory.create({ name });
+      console.log('Creating category with:', { name, branch_id });
+      const category = await ProductCategory.create({ name, branch_id });
+      console.log('Category created successfully:', category.toJSON());
 
       res.status(201).json({
         success: true,
@@ -92,7 +110,8 @@ class ProductCategoryController {
         message: 'Category created successfully'
       });
     } catch (error) {
-      console.error('Error creating category:', error);
+      console.error('Error creating category - Full error:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         success: false,
         error: 'Failed to create category',
